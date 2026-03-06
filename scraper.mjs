@@ -23,7 +23,15 @@ app.use(express.json({ limit: '10mb' }));
 // ============================================================
 // Ollama Local API Configuration
 // ============================================================
-const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://localhost:11434';
+let ollamaHostValue = process.env.OLLAMA_HOST || 'http://localhost:11434';
+if (!ollamaHostValue.startsWith('http://') && !ollamaHostValue.startsWith('https://')) {
+    if (ollamaHostValue.includes(':')) {
+        ollamaHostValue = `http://${ollamaHostValue}`;
+    } else {
+        ollamaHostValue = `http://${ollamaHostValue}:11434`;
+    }
+}
+const OLLAMA_HOST = ollamaHostValue;
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:7b';
 const OLLAMA_CHAT_API = `${OLLAMA_HOST}/api/chat`;
 
