@@ -177,30 +177,30 @@ export default function TopBar({
             <Wand2 size={14} />
             <span className="hidden md:inline">写作</span>
           </button>
-
-
-          {/* 分隔线 */}
-          <div className="w-px h-4 bg-[var(--color-border-default)] mx-1" />
-
-          {/* 设置按钮 */}
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            title="设置"
-            className="flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-text-tertiary)] hover:text-[var(--color-accent-primary)] hover:bg-[var(--color-accent-soft)] transition-colors cursor-pointer"
-          >
-            <Settings size={16} />
-          </button>
-
-          {/* 主题切换 */}
-          <button
-            onClick={onToggleTheme}
-            title={theme === 'light' ? '切换到晚间模式' : '切换到早间模式'}
-            className="flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-text-tertiary)] hover:text-[var(--color-accent-primary)] hover:bg-[var(--color-accent-soft)] transition-colors cursor-pointer"
-          >
-            {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
-          </button>
         </div>
       )}
+
+      {/* ── 最右侧：始终可见的操作 ── */}
+      <div className="flex items-center gap-2 ml-3 flex-shrink-0 border-l border-[var(--color-border-default)] pl-3">
+
+        {/* 设置按钮 */}
+        <button
+          onClick={() => setIsSettingsOpen(true)}
+          title="设置"
+          className="flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-text-tertiary)] hover:text-[var(--color-accent-primary)] hover:bg-[var(--color-accent-soft)] transition-colors cursor-pointer"
+        >
+          <Settings size={16} />
+        </button>
+
+        {/* 主题切换 */}
+        <button
+          onClick={onToggleTheme}
+          title={theme === 'light' ? '切换到晚间模式' : '切换到早间模式'}
+          className="flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-text-tertiary)] hover:text-[var(--color-accent-primary)] hover:bg-[var(--color-accent-soft)] transition-colors cursor-pointer"
+        >
+          {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+        </button>
+      </div>
 
       {/* Writer Modal */}
       {showWriter && hasArticle && (
