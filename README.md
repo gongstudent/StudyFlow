@@ -16,8 +16,11 @@
 
 <div align="center">
   <br />
-  <!-- UI Placeholder -->
-  <img src="./public/screenshot.png" alt="StudyFlow Main Interface" width="800" />
+  <img src="./img/项目首页图.png" alt="StudyFlow Main Interface" width="800" />
+  <br /><br />
+  <img src="./img/使用界面.png" alt="StudyFlow Usage 1" width="800" />
+  <br /><br />
+  <img src="./img/使用界面2.png" alt="StudyFlow Usage 2" width="800" />
 </div>
 
 ---
@@ -46,14 +49,7 @@ Try StudyFlow directly in your browser! Zero installation required.
   - **Cloud Power**: Switch to **GitHub Models** (`gpt-4o-mini`) simply by providing a free GitHub token.
   
 - 💬 **Contextual Chat**: Ask questions and chat deeply with the specific article or document you are reading.
-  <br/>
-  <!-- AI Chat GIF Placeholder -->
-  *![AI Chat Demo](./public/chat-demo.gif)*
-
 - 🌍 **Immersive Translation**: Translate massive articles into highly readable Chinese with one click, while perfectly preserving Markdown formatting and code blocks.
-  <br/>
-  <!-- Translation GIF Placeholder -->
-  *![Translation Demo](./public/translation-demo.gif)*
 
 - 🏷️ **Smart Tagging**: Automatically extract the top technical tags from your reading materials to keep your library organized.
 - ✍️ **AI Writing Assistant**: Highlight any text to instantly generate concise summaries, study notes, or comprehensive tech blog drafts.
@@ -119,14 +115,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
   - **云端接入**：配置免费的 GitHub Token 后，即可一键切换至强大的 **GitHub Models** (`gpt-4o-mini`)。
 
 - 💬 **上下文关联对话**：针对您当前正在阅读的特定文章或文档，与 AI 展开深度讨论和问答。
-  <br/>
-  <!-- AI 对话 GIF 占位符 -->
-  *![AI 对话演示](./public/chat-demo.gif)*
-
 - 🌍 **长文沉浸式翻译**：一键将万字长文翻译为流畅易读的中文，且**完美保留**所有 Markdown 排版、链接和代码块。
-  <br/>
-  <!-- 长文翻译 GIF 占位符 -->
-  *![长文翻译演示](./public/translation-demo.gif)*
 
 - 🏷️ **智能标签分类**：自动从阅读材料中提取核心技术标签，让您的知识库井井有条。
 - ✍️ **AI 写作助手**：一键为您阅读的内容生成精简总结、学习笔记，甚至是结构完整的技术博客草稿。

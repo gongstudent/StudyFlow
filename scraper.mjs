@@ -24,6 +24,8 @@ app.use(express.json({ limit: '10mb' }));
 // Ollama Local API Configuration
 // ============================================================
 let ollamaHostValue = process.env.OLLAMA_HOST || 'http://localhost:11434';
+// 0.0.0.0 是服务器绑定地址，不能作为客户端连接目标，自动转为 localhost
+ollamaHostValue = ollamaHostValue.replace(/0\.0\.0\.0/g, 'localhost');
 if (!ollamaHostValue.startsWith('http://') && !ollamaHostValue.startsWith('https://')) {
     if (ollamaHostValue.includes(':')) {
         ollamaHostValue = `http://${ollamaHostValue}`;
