@@ -1,7 +1,23 @@
 # 📚 StudyFlow: Your Ultimate AI-Powered Study Assistant
 
 <div align="center">
+
+![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
+![Electron](https://img.shields.io/badge/Electron-191970?style=for-the-badge&logo=Electron&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
+<br>
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
+
+<br>
   🌐 <a href="#english">English</a> | 🇨🇳 <a href="#简体中文">简体中文</a>
+</div>
+
+<div align="center">
+  <br />
+  <!-- UI Placeholder -->
+  <img src="./public/screenshot.png" alt="StudyFlow Main Interface" width="800" />
 </div>
 
 ---
@@ -28,8 +44,17 @@ Try StudyFlow directly in your browser! Zero installation required.
 - 🧠 **Dual AI Engine Support**: 
   - **Local First**: Run completely offline and private using [Ollama](https://ollama.com/) (defaults to `qwen2.5:7b`).
   - **Cloud Power**: Switch to **GitHub Models** (`gpt-4o-mini`) simply by providing a free GitHub token.
+  
 - 💬 **Contextual Chat**: Ask questions and chat deeply with the specific article or document you are reading.
+  <br/>
+  <!-- AI Chat GIF Placeholder -->
+  *![AI Chat Demo](./public/chat-demo.gif)*
+
 - 🌍 **Immersive Translation**: Translate massive articles into highly readable Chinese with one click, while perfectly preserving Markdown formatting and code blocks.
+  <br/>
+  <!-- Translation GIF Placeholder -->
+  *![Translation Demo](./public/translation-demo.gif)*
+
 - 🏷️ **Smart Tagging**: Automatically extract the top technical tags from your reading materials to keep your library organized.
 - ✍️ **AI Writing Assistant**: Highlight any text to instantly generate concise summaries, study notes, or comprehensive tech blog drafts.
 - 💻 **Native Desktop App**: Packaged with Electron for a buttery-smooth desktop experience.
@@ -60,6 +85,14 @@ To enjoy the full power of StudyFlow (including local AI and unrestricted web sc
    npm run electron:build
    ```
 
+### 🤝 Contributing
+
+We welcome all contributions! Whether it's reporting a bug, suggesting a new feature, or submitting a Pull Request, your help is appreciated. Please read our [Contributing Guidelines](CONTRIBUTING.md) before getting started.
+
+### 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
 ---
 
 <h2 id="简体中文">🇨🇳 简体中文</h2>
@@ -84,8 +117,17 @@ To enjoy the full power of StudyFlow (including local AI and unrestricted web sc
 - 🧠 **双擎 AI 支持**：
   - **本地优先**：通过 [Ollama](https://ollama.com/) 实现完全离线、保护隐私的本地 AI 服务（默认加载 `qwen2.5:7b`）。
   - **云端接入**：配置免费的 GitHub Token 后，即可一键切换至强大的 **GitHub Models** (`gpt-4o-mini`)。
+
 - 💬 **上下文关联对话**：针对您当前正在阅读的特定文章或文档，与 AI 展开深度讨论和问答。
+  <br/>
+  <!-- AI 对话 GIF 占位符 -->
+  *![AI 对话演示](./public/chat-demo.gif)*
+
 - 🌍 **长文沉浸式翻译**：一键将万字长文翻译为流畅易读的中文，且**完美保留**所有 Markdown 排版、链接和代码块。
+  <br/>
+  <!-- 长文翻译 GIF 占位符 -->
+  *![长文翻译演示](./public/translation-demo.gif)*
+
 - 🏷️ **智能标签分类**：自动从阅读材料中提取核心技术标签，让您的知识库井井有条。
 - ✍️ **AI 写作助手**：一键为您阅读的内容生成精简总结、学习笔记，甚至是结构完整的技术博客草稿。
 - 💻 **原生桌面体验**：借助 Electron 打包，为您提供丝滑的跨平台桌面客户端体验。
@@ -115,6 +157,14 @@ To enjoy the full power of StudyFlow (including local AI and unrestricted web sc
    ```bash
    npm run electron:build
    ```
+
+### 🤝 参与贡献
+
+我们非常欢迎任何形式的贡献！无论是提交 Issue 反馈 Bug，提出新功能建议，还是提交 Pull Request 改进代码，我们都无比感激。在开始之前，请查阅我们的 [贡献指南](CONTRIBUTING.md)（待补充）。
+
+### 📄 开源协议
+
+本项目基于 MIT 协议开源，详情请参阅 [LICENSE](LICENSE) 文件。
 
 ---
 <div align="center">
