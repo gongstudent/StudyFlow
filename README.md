@@ -17,10 +17,7 @@
 <div align="center">
   <br />
   <img src="./img/项目首页图.png" alt="StudyFlow Main Interface" width="800" />
-  <br /><br />
-  <img src="./img/使用界面.png" alt="StudyFlow Usage 1" width="800" />
-  <br /><br />
-  <img src="./img/使用界面2.png" alt="StudyFlow Usage 2" width="800" />
+  <p><em>⬆️ Clean & intuitive interface — just paste a URL or upload a file to start your learning journey. | 简洁直观的界面 —— 粘贴链接或导入文件，开启学习之旅。</em></p>
 </div>
 
 ---
@@ -44,13 +41,24 @@ Try StudyFlow directly in your browser! Zero installation required.
 ### 🚀 Core Features
 
 - 📑 **Universal Reading**: Seamlessly parse local files (`.md`, `.txt`, `.pdf`, `.docx`) or paste any web URL to extract its content.
+
+<div align="center">
+  <img src="./img/使用界面2.png" alt="Document Reading & Notes" width="700" />
+  <p><em>📖 Read documents with full formatting and take notes alongside | 完整格式阅读文档，同时记录笔记</em></p>
+</div>
+
 - 🧠 **Dual AI Engine Support**: 
   - **Local First**: Run completely offline and private using [Ollama](https://ollama.com/) (defaults to `qwen2.5:7b`).
   - **Cloud Power**: Switch to **GitHub Models** (`gpt-4o-mini`) simply by providing a free GitHub token.
   
 - 💬 **Contextual Chat**: Ask questions and chat deeply with the specific article or document you are reading.
-- 🌍 **Immersive Translation**: Translate massive articles into highly readable Chinese with one click, while perfectly preserving Markdown formatting and code blocks.
 
+<div align="center">
+  <img src="./img/使用界面.png" alt="AI Contextual Chat" width="700" />
+  <p><em>🤖 AI deeply discusses document content in real-time | AI 实时深度讨论文档内容</em></p>
+</div>
+
+- 🌍 **Immersive Translation**: Translate massive articles into highly readable Chinese with one click, while perfectly preserving Markdown formatting and code blocks.
 - 🏷️ **Smart Tagging**: Automatically extract the top technical tags from your reading materials to keep your library organized.
 - ✍️ **AI Writing Assistant**: Highlight any text to instantly generate concise summaries, study notes, or comprehensive tech blog drafts.
 - 💻 **Native Desktop App**: Packaged with Electron for a buttery-smooth desktop experience.
@@ -110,13 +118,24 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ### 🚀 核心亮点
 
 - 📑 **全能阅读器**：无缝解析本地文件（`.md`、`.txt`、`.pdf`、`.docx`），或直接粘贴任意网页链接提取正文。
+
+<div align="center">
+  <img src="./img/使用界面2.png" alt="文档阅读与笔记" width="700" />
+  <p><em>📖 完整格式阅读文档，同时在右侧记录学习笔记</em></p>
+</div>
+
 - 🧠 **双擎 AI 支持**：
   - **本地优先**：通过 [Ollama](https://ollama.com/) 实现完全离线、保护隐私的本地 AI 服务（默认加载 `qwen2.5:7b`）。
   - **云端接入**：配置免费的 GitHub Token 后，即可一键切换至强大的 **GitHub Models** (`gpt-4o-mini`)。
 
 - 💬 **上下文关联对话**：针对您当前正在阅读的特定文章或文档，与 AI 展开深度讨论和问答。
-- 🌍 **长文沉浸式翻译**：一键将万字长文翻译为流畅易读的中文，且**完美保留**所有 Markdown 排版、链接和代码块。
 
+<div align="center">
+  <img src="./img/使用界面.png" alt="AI 上下文对话" width="700" />
+  <p><em>🤖 AI 正在针对「微调向量模型」进行深度回复，左侧展示 PDF 目录结构</em></p>
+</div>
+
+- 🌍 **长文沉浸式翻译**：一键将万字长文翻译为流畅易读的中文，且**完美保留**所有 Markdown 排版、链接和代码块。
 - 🏷️ **智能标签分类**：自动从阅读材料中提取核心技术标签，让您的知识库井井有条。
 - ✍️ **AI 写作助手**：一键为您阅读的内容生成精简总结、学习笔记，甚至是结构完整的技术博客草稿。
 - 💻 **原生桌面体验**：借助 Electron 打包，为您提供丝滑的跨平台桌面客户端体验。
