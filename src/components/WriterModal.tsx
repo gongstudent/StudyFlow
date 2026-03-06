@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { API_BASE_URL } from '../lib/config';
+import { getSettings } from '../lib/settings';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { X, FileText, BookOpen, Loader2, Copy, Check, Sparkles } from 'lucide-react';
@@ -24,17 +25,54 @@ export default function WriterModal({ articleContent, onClose }: WriterModalProp
         setError(null);
         setResult(null);
         try {
-            const resp = await fetch(`${API_BASE_URL}/api/generate-draft`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: articleContent, type }),
-            });
-            if (!resp.ok) {
-                const data = await resp.json().catch(() => ({}));
-                throw new Error(data.error || `请求失败 (${resp.status})`);
+            const settings = getSettings();
+            const isGithub = settings.aiProvider === 'github';
+
+            if (isGithub && !settings.githubToken) {
+                throw new Error('请先在"设置"中配置 GitHub Personal Access Token');
             }
-            const data = await resp.json();
-            setResult(data.draft);
+
+            if (isGithub) {
+                const systemPrompt = type === 'blog'
+                    ? 'You are an expert technical writer. Write a comprehensive, well-structured tech blog post based on the provided text. Use markdown.'
+                    : 'You are an expert summarizer. Write a concise, bulleted summary of the provided text. Use markdown.';
+
+                const resp = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${settings.githubToken}`
+                    },
+                    body: JSON.stringify({
+                        messages: [
+                            { role: 'system', content: systemPrompt },
+                            { role: 'user', content: articleContent }
+                        ],
+                        model: 'gpt-4o-mini',
+                        temperature: 0.5
+                    })
+                });
+
+                if (!resp.ok) {
+                    const errText = await resp.text().catch(() => '');
+                    if (resp.status === 401) throw new Error('GitHub Token 无效或已过期');
+                    throw new Error(`请求失败 (${resp.status}): ${errText}`);
+                }
+                const data = await resp.json();
+                setResult(data.choices?.[0]?.message?.content || '');
+            } else {
+                const resp = await fetch(`${API_BASE_URL}/api/generate-draft`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content: articleContent, type }),
+                });
+                if (!resp.ok) {
+                    const data = await resp.json().catch(() => ({}));
+                    throw new Error(data.error || `请求失败 (${resp.status})`);
+                }
+                const data = await resp.json();
+                setResult(data.draft);
+            }
         } catch (err) {
             setError(err instanceof Error ? err.message : '生成失败');
         } finally {

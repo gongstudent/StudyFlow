@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
-import { Globe, ArrowRight, Loader2, BookOpen, Languages, FileText, ClipboardPaste, Wand2, Upload, Sun, Moon } from 'lucide-react';
+import { Globe, ArrowRight, Loader2, BookOpen, Languages, FileText, ClipboardPaste, Wand2, Upload, Sun, Moon, Settings } from 'lucide-react';
 import WriterModal from './WriterModal';
+import SettingsModal from './SettingsModal';
 
 // ... (CORS_PROXY_URL remains same)
 
@@ -31,6 +32,7 @@ export default function TopBar({
 }: TopBarProps) {
   const [inputUrl, setInputUrl] = useState('');
   const [showWriter, setShowWriter] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -180,6 +182,15 @@ export default function TopBar({
           {/* 分隔线 */}
           <div className="w-px h-4 bg-[var(--color-border-default)] mx-1" />
 
+          {/* 设置按钮 */}
+          <button
+            onClick={() => setIsSettingsOpen(true)}
+            title="设置"
+            className="flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-text-tertiary)] hover:text-[var(--color-accent-primary)] hover:bg-[var(--color-accent-soft)] transition-colors cursor-pointer"
+          >
+            <Settings size={16} />
+          </button>
+
           {/* 主题切换 */}
           <button
             onClick={onToggleTheme}
@@ -198,6 +209,12 @@ export default function TopBar({
           onClose={() => setShowWriter(false)}
         />
       )}
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
     </header>
   );
 }

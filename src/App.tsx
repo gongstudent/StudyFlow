@@ -9,9 +9,11 @@ import { fetchWebContent } from './lib/scraper';
 import { streamChat } from './lib/chat';
 import { saveArticle as dbSaveArticle, getAllArticles as dbGetAllArticles, deleteArticle as dbDeleteArticle, saveChatSession, getChatSession, updateArticleTags } from './lib/db';
 import { useTheme } from './hooks/useTheme';
+import { getSettings } from './lib/settings';
 import type { Article, ChatMessage, SidebarMode } from './types';
 
 type ViewMode = 'original' | 'translated';
+const GITHUB_MODELS_URL = 'https://models.inference.ai.azure.com/chat/completions';
 
 export default function App() {
   const { theme, toggleTheme } = useTheme();
@@ -46,14 +48,50 @@ export default function App() {
   // ======== 异步 AI 打标 ========
   const fetchArticleTags = useCallback(async (article: Article) => {
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/tags`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: article.title, content: article.content }),
-      });
-      if (!resp.ok) return;
-      const { tags } = await resp.json() as { tags: string[] };
+      const settings = getSettings();
+      const isGithub = settings.aiProvider === 'github';
+      if (isGithub && !settings.githubToken) return;
+
+      let tags: string[] = [];
+
+      if (isGithub) {
+        const resp = await fetch(GITHUB_MODELS_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${settings.githubToken}`
+          },
+          body: JSON.stringify({
+            messages: [
+              { role: 'system', content: 'You are a helpful assistant that extracts exactly 3-5 core technical tags from the given text.' },
+              { role: 'user', content: `Extract tags for this article. Title: ${article.title}\nContent: ${article.content.substring(0, 3000)}\nReturn ONLY a JSON array of strings like ["tag1", "tag2"]. No markdown formatting.` }
+            ],
+            model: 'gpt-4o-mini',
+            temperature: 0.1
+          })
+        });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        try {
+          const content = data.choices[0].message.content.replace(/```json\n?/, '').replace(/```\n?/, '');
+          tags = JSON.parse(content);
+        } catch {
+          return;
+        }
+      } else {
+        const resp = await fetch(`${API_BASE_URL}/api/tags`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: article.title, content: article.content.substring(0, 3000) }),
+        });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        tags = data.tags;
+      }
+
       if (tags && tags.length > 0) {
+        // limit to 5
+        tags = tags.slice(0, 5);
         await updateArticleTags(article.id, tags);
         setSavedArticles((prev) =>
           prev.map((a) => (a.id === article.id ? { ...a, tags } : a))
@@ -125,29 +163,64 @@ export default function App() {
       return;
     }
 
-    // 首次翻译 → 调用 /api/translate
+    // 首次翻译 → 调用翻译 API
     setIsTranslating(true);
-    // 显示持久化提示 (用户要求)
-    setStatusMsg('正在启动【长文稳定翻译模式】。由于 AI 速率限制，全篇翻译可能需要 2-5 分钟。请耐心等待，不要关闭页面...');
-    setErrorMsg(null); // 清除旧错误
+    setStatusMsg('正在启动【长文稳定翻译模式】。全篇翻译可能需要一些时间，请耐心等待...');
+    setErrorMsg(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/translate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: originalContent,
-          targetLanguage: '中文',
-        }),
-      });
+      const settings = getSettings();
+      const isGithub = settings.aiProvider === 'github';
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
-        throw new Error(errData.error || `翻译失败: HTTP ${response.status}`);
+      if (isGithub && !settings.githubToken) {
+        throw new Error('请先在"设置"中配置 GitHub Personal Access Token');
       }
 
-      const data = await response.json();
-      const translated = data.translatedContent;
+      let translated = '';
+
+      if (isGithub) {
+        // GitHub Models Translation (Note: context length might be limited for very long articles)
+        const resp = await fetch(GITHUB_MODELS_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${settings.githubToken}`
+          },
+          body: JSON.stringify({
+            messages: [
+              { role: 'system', content: 'You are a professional translator. Translate the following markdown text into elegant fluent 中文. Preserve all markdown formatting, links, and code blocks exactly.' },
+              { role: 'user', content: originalContent }
+            ],
+            model: 'gpt-4o-mini',
+            temperature: 0.3
+          })
+        });
+        if (!resp.ok) {
+          const errText = await resp.text().catch(() => '');
+          if (resp.status === 401) throw new Error('GitHub Token 无效或已过期');
+          throw new Error(`翻译失败: HTTP ${resp.status} ${errText}`);
+        }
+        const data = await resp.json();
+        translated = data.choices?.[0]?.message?.content || '';
+      } else {
+        // 本地 Ollama 代理流式拆分翻译
+        const response = await fetch(`${API_BASE_URL}/api/translate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            content: originalContent,
+            targetLanguage: '中文',
+          }),
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+          throw new Error(errData.error || `翻译失败: HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        translated = data.translatedContent;
+      }
 
       if (!translated) {
         throw new Error('翻译结果为空');
