@@ -22,6 +22,8 @@ export interface Article {
   favicon?: string;
   /** AI 自动生成的标签 */
   tags?: string[];
+  /** 是否已被存入知识库 */
+  isSavedToKB?: boolean;
   /** 原文件类型 */
   fileType?: 'pdf' | 'docx' | 'md' | 'txt';
   /** 原文件数据 (用于 PDF 渲染) */

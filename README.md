@@ -1,180 +1,240 @@
-# 📚 StudyFlow: Your Ultimate AI-Powered Study Assistant
+﻿# StudyFlow — AI-Powered Study Assistant
 
 <div align="center">
 
 ![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
 ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
-![Electron](https://img.shields.io/badge/Electron-191970?style=for-the-badge&logo=Electron&logoColor=white)
+![Electron](https://img.shields.io/badge/Electron-47848F?style=for-the-badge&logo=electron&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![Qdrant](https://img.shields.io/badge/Qdrant-FF4B4B?style=for-the-badge&logo=qdrant&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
 <br>
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](http://makeapullrequest.com)
 
 <br>
-  🌐 <a href="#english">English</a> | 🇨🇳 <a href="#简体中文">简体中文</a>
+<a href="#english">English</a> | <a href="#zh-cn">简体中文</a>
 </div>
 
 <div align="center">
   <br />
   <img src="./img/项目首页图.png" alt="StudyFlow Main Interface" width="800" />
-  <p><em>⬆️ Clean & intuitive interface — just paste a URL or upload a file to start your learning journey. | 简洁直观的界面 —— 粘贴链接或导入文件，开启学习之旅。</em></p>
+  <p><em>Clean and intuitive interface — unified reading engine, notebook, and knowledge base.</em></p>
 </div>
 
 ---
 
-<h2 id="english">🇬🇧 English</h2>
+<h2 id="english">English</h2>
 
-**StudyFlow** is a modern, beautifully crafted application designed to supercharge your learning and reading workflow. Built with React, TypeScript, and Electron, it brings the power of AI directly to your documents and web pages. 
+**StudyFlow** is an AI-powered reading and learning workspace that combines:
 
-Whether you want absolute privacy with **Local AI (Ollama)** or cloud-powered convenience via **GitHub Models API**, StudyFlow adapts to your needs.
+- a **Reading Engine** (URLs + local files)
+- an **AI Notebook** (notes alongside sources)
+- a **Knowledge Base (RAG)** backed by **Qdrant**
 
-### ✨ Experience It Now
+It runs as a **web app** and a **native desktop app** (Electron).
 
-Try StudyFlow directly in your browser! Zero installation required.
+### Features
 
-👉 **[Launch Online Demo](https://gongstudent.github.io/StudyFlow/)**
+- Read from URLs or upload `.pdf`, `.docx`, `.md`, `.txt`
+- Chat with the current article or your entire knowledge base
+- Build a private RAG knowledge base (chunk → embed → store → search)
+- Streaming AI responses (SSE)
+- Cross-platform desktop build with Electron
+- Self-hostable with Docker (web + API + Qdrant)
 
-> 💡 **Tip for the Online Demo**: The web version now supports **GitHub Models API**! Just click the **Settings (⚙️)** icon in the top right, enter your free [GitHub Personal Access Token](https://github.com/settings/tokens/new), and instantly unlock features like AI Chat, Full-Page Translation, and the AI Writing Assistant—all running completely in your browser! *(Note: URL scraping is limited in the web demo due to CORS limitations, please use local file uploads instead).*
+### Tech Stack
+
+- Frontend: React 19, Vite, TypeScript, Tailwind CSS v4
+- Desktop: Electron
+- Backend: Node.js (`scraper.mjs`) + Express
+- Vector DB: Qdrant
+- Models: Ollama or any OpenAI-compatible API
+
+### Quick Start
+
+#### Option A: Docker Compose (recommended)
+
+```bash
+docker compose up --build
+# or: docker-compose up --build
+```
+
+Open: `http://localhost:5173`
+
+#### Option B: Local development (web + API)
+
+In two terminals:
+
+```bash
+npm install
+npm run server
+```
+
+```bash
+npm run dev
+```
+
+- Web: `http://localhost:5173`
+- API: `http://localhost:3000` (Vite dev server proxies `/api` → `:3000`)
+
+#### Option C: Desktop app (Electron)
+
+```bash
+npm install
+npm run electron:dev
+```
+
+Build installer:
+
+```bash
+npm run electron:build
+```
+
+### Model Configuration
+
+Open **Settings** in the app to configure both **Chat LLM** and **Embedding**.
+
+Defaults are set for **Ollama**:
+
+- Chat Base URL: `http://localhost:11434/v1`
+- Embedding Base URL: `http://localhost:11434/v1`
+- Models: `qwen2.5:7b` and `nomic-embed-text`
+
+Any OpenAI-compatible endpoint should work (including GitHub Models and other providers) by setting:
+
+- Base URL
+- API Key
+- Model name
+
+### Knowledge Base (Qdrant)
+
+Knowledge Base features require Qdrant at `http://localhost:6333` (default).
+
+Run Qdrant quickly:
+
+```bash
+docker run --rm -p 6333:6333 -p 6334:6334 -v qdrant_storage:/qdrant/storage qdrant/qdrant:latest
+```
+
+You can override backend settings via environment variables (for `scraper.mjs`):
+
+- `QDRANT_URL`, `QDRANT_COLLECTION`
+- `UPLOAD_DIR`
+- `OLLAMA_HOST`, `OLLAMA_MODEL`
+- `EMBEDDING_BASE_URL`, `EMBEDDING_MODEL_NAME`, `EMBEDDING_API_KEY`
+
+### GitHub Pages Note
+
+This repo also builds a static site for GitHub Pages. Features that depend on the backend (URL scraping, LLM proxy, Knowledge Base) require your own running API and will not work on Pages alone.
+
+---
+
+<h2 id="zh-cn">简体中文</h2>
+
+**StudyFlow** 是一个 AI 驱动的阅读与学习工作台，集成了：
+
+- **阅读引擎**（URL + 本地文件）
+- **AI 笔记本**（边读边记）
+- 基于 **Qdrant** 的 **知识库（RAG）**
+
+支持 **Web** 与 **桌面端（Electron）**。
+
+### 核心功能
+
+- 支持 URL 抓取与上传 `.pdf` / `.docx` / `.md` / `.txt`
+- AI 可基于当前文章或全局知识库进行对话
+- 个人知识库：切片 → 向量化 → 存储 → 检索（RAG）
+- 流式输出（SSE）
+- Electron 桌面应用
+- Docker 一键部署（Web + API + Qdrant）
+
+### 技术栈
+
+- 前端：React 19，Vite，TypeScript，Tailwind CSS v4
+- 桌面端：Electron
+- 后端：Node.js（`scraper.mjs`）+ Express
+- 向量数据库：Qdrant
+- 模型：Ollama 或任意 OpenAI 兼容接口
+
+### 快速开始
+
+#### 方式 A：Docker Compose（推荐）
+
+```bash
+docker compose up --build
+# 或：docker-compose up --build
+```
+
+浏览器打开：`http://localhost:5173`
+
+#### 方式 B：本地开发（Web + API）
+
+两个终端分别运行：
+
+```bash
+npm install
+npm run server
+```
+
+```bash
+npm run dev
+```
+
+- Web：`http://localhost:5173`
+- API：`http://localhost:3000`（开发环境下 `/api` 会被代理到 `:3000`）
+
+#### 方式 C：桌面端（Electron）
+
+```bash
+npm install
+npm run electron:dev
+```
+
+打包安装包：
+
+```bash
+npm run electron:build
+```
+
+### 模型配置
+
+在应用内 **Settings** 中可分别配置对话模型与 Embedding 模型。
+
+默认使用 **Ollama**：
+
+- Chat Base URL：`http://localhost:11434/v1`
+- Embedding Base URL：`http://localhost:11434/v1`
+- 模型：`qwen2.5:7b` 与 `nomic-embed-text`
+
+也支持任意 OpenAI 兼容接口（包括 GitHub Models 等），只需填写：
+
+- Base URL
+- API Key
+- Model Name
+
+### 知识库（Qdrant）
+
+知识库功能需要 Qdrant（默认地址 `http://localhost:6333`）。
+
+快速启动 Qdrant：
+
+```bash
+docker run --rm -p 6333:6333 -p 6334:6334 -v qdrant_storage:/qdrant/storage qdrant/qdrant:latest
+```
+
+`scraper.mjs` 可通过环境变量配置：
+
+- `QDRANT_URL`, `QDRANT_COLLECTION`
+- `UPLOAD_DIR`
+- `OLLAMA_HOST`, `OLLAMA_MODEL`
+- `EMBEDDING_BASE_URL`, `EMBEDDING_MODEL_NAME`, `EMBEDDING_API_KEY`
+
+### GitHub Pages 说明
+
+GitHub Pages 只部署静态页面。依赖后端的功能（URL 抓取、LLM 代理、知识库）需要你自行运行 API 服务，Pages 本身无法提供这些能力。
 
 ---
 
-### 🚀 Core Features
-
-- 📑 **Universal Reading**: Seamlessly parse local files (`.md`, `.txt`, `.pdf`, `.docx`) or paste any web URL to extract its content.
-
 <div align="center">
-  <img src="./img/使用界面2.png" alt="Document Reading & Notes" width="700" />
-  <p><em>📖 Read documents with full formatting and take notes alongside | 完整格式阅读文档，同时记录笔记</em></p>
-</div>
-
-- 🧠 **Dual AI Engine Support**: 
-  - **Local First**: Run completely offline and private using [Ollama](https://ollama.com/) (defaults to `qwen2.5:7b`).
-  - **Cloud Power**: Switch to **GitHub Models** (`gpt-4o-mini`) simply by providing a free GitHub token.
-  
-- 💬 **Contextual Chat**: Ask questions and chat deeply with the specific article or document you are reading.
-
-<div align="center">
-  <img src="./img/使用界面.png" alt="AI Contextual Chat" width="700" />
-  <p><em>🤖 AI deeply discusses document content in real-time | AI 实时深度讨论文档内容</em></p>
-</div>
-
-- 🌍 **Immersive Translation**: Translate massive articles into highly readable Chinese with one click, while perfectly preserving Markdown formatting and code blocks.
-- 🏷️ **Smart Tagging**: Automatically extract the top technical tags from your reading materials to keep your library organized.
-- ✍️ **AI Writing Assistant**: Highlight any text to instantly generate concise summaries, study notes, or comprehensive tech blog drafts.
-- 💻 **Native Desktop App**: Packaged with Electron for a buttery-smooth desktop experience.
-
-### 🛠️ Tech Stack
-
-- **Frontend**: React 19, Vite, TypeScript, Tailwind CSS v4, Lucide Icons
-- **Backend (Desktop)**: Native Express Server (`scraper.mjs`) for proxying and parsing
-- **AI Integration**: Ollama REST API & GitHub Models Server-Sent Events (SSE)
-- **Desktop**: Electron & Electron Builder
-
-### ⚙️ Local Desktop Setup (Recommended)
-
-To enjoy the full power of StudyFlow (including local AI and unrestricted web scraping), run it locally:
-
-1. **Install Node.js** (v18+ recommended) and the [Ollama](https://ollama.com/) desktop app.
-2. **Download the local model**:
-   ```bash
-   ollama run qwen2.5:7b
-   ```
-3. **Install & Run StudyFlow**:
-   ```bash
-   npm install
-   npm run electron:dev
-   ```
-4. **Build for Production**:
-   ```bash
-   npm run electron:build
-   ```
-
-### 🤝 Contributing
-
-We welcome all contributions! Whether it's reporting a bug, suggesting a new feature, or submitting a Pull Request, your help is appreciated. Please read our [Contributing Guidelines](CONTRIBUTING.md) before getting started.
-
-### 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-<h2 id="简体中文">🇨🇳 简体中文</h2>
-
-**StudyFlow** 是一款现代、精美的学习辅助应用，旨在全面提升您的阅读和学习工作流。基于 React、TypeScript 和 Electron 构建，它将强大的 AI 能力完美融入了您的文档阅读和网页浏览中。
-
-无论您是追求极致隐私的 **本地 AI (Ollama)** 偏好者，还是希望体验云端强力模型的 **GitHub Models API** 用户，StudyFlow 都能完美适配您的需求。
-
-### ✨ 立即在线体验
-
-无需任何安装，直接在浏览器中感受 StudyFlow 的魅力！
-
-👉 **[启动在线演示 (Live Demo)](https://gongstudent.github.io/StudyFlow/)**
-
-> 💡 **在线演示端提示**：网页版现已全面接入 **GitHub Models API**！只需点击右上角的**设置 (⚙️)** 按钮，填入您免费获取的 [GitHub Token](https://github.com/settings/tokens/new)，即可瞬间解锁 AI 对话、长文沉浸式翻译、AI 辅助写作等高级功能！*(注：受浏览器跨域限制，网页版暂不支持直接抓取外部 URL，请使用本地文件导入功能代替)*。
-
----
-
-### 🚀 核心亮点
-
-- 📑 **全能阅读器**：无缝解析本地文件（`.md`、`.txt`、`.pdf`、`.docx`），或直接粘贴任意网页链接提取正文。
-
-<div align="center">
-  <img src="./img/使用界面2.png" alt="文档阅读与笔记" width="700" />
-  <p><em>📖 完整格式阅读文档，同时在右侧记录学习笔记</em></p>
-</div>
-
-- 🧠 **双擎 AI 支持**：
-  - **本地优先**：通过 [Ollama](https://ollama.com/) 实现完全离线、保护隐私的本地 AI 服务（默认加载 `qwen2.5:7b`）。
-  - **云端接入**：配置免费的 GitHub Token 后，即可一键切换至强大的 **GitHub Models** (`gpt-4o-mini`)。
-
-- 💬 **上下文关联对话**：针对您当前正在阅读的特定文章或文档，与 AI 展开深度讨论和问答。
-
-<div align="center">
-  <img src="./img/使用界面.png" alt="AI 上下文对话" width="700" />
-  <p><em>🤖 AI 正在针对「微调向量模型」进行深度回复，左侧展示 PDF 目录结构</em></p>
-</div>
-
-- 🌍 **长文沉浸式翻译**：一键将万字长文翻译为流畅易读的中文，且**完美保留**所有 Markdown 排版、链接和代码块。
-- 🏷️ **智能标签分类**：自动从阅读材料中提取核心技术标签，让您的知识库井井有条。
-- ✍️ **AI 写作助手**：一键为您阅读的内容生成精简总结、学习笔记，甚至是结构完整的技术博客草稿。
-- 💻 **原生桌面体验**：借助 Electron 打包，为您提供丝滑的跨平台桌面客户端体验。
-
-### 🛠️ 技术架构
-
-- **前端界面**：React 19, Vite, TypeScript, Tailwind CSS v4, Lucide Icons
-- **本地后端**：原生 Express Server (`scraper.mjs`)，负责解决跨域抓取和流式转发
-- **AI 交互**：Ollama REST API 与 GitHub Models SSE 流式输出
-- **桌面端应用**：基于 Electron & Electron Builder 构建
-
-### ⚙️ 本地桌面端安装指南 (推荐)
-
-为了获得 StudyFlow 最完整的体验（解锁全部网页精准抓取及本地离线 AI），我们强烈推荐您在本地运行：
-
-1. **准备环境**：确保您已安装 Node.js (推荐 v18+) 以及 [Ollama](https://ollama.com/) 客户端。
-2. **下载本地大模型**：
-   ```bash
-   ollama run qwen2.5:7b
-   ```
-3. **安装并启动 StudyFlow**：
-   ```bash
-   npm install
-   npm run electron:dev
-   ```
-4. **打包生产环境客户端**：
-   ```bash
-   npm run electron:build
-   ```
-
-### 🤝 参与贡献
-
-我们非常欢迎任何形式的贡献！无论是提交 Issue 反馈 Bug，提出新功能建议，还是提交 Pull Request 改进代码，我们都无比感激。在开始之前，请查阅我们的 [贡献指南](CONTRIBUTING.md)（待补充）。
-
-### 📄 开源协议
-
-本项目基于 MIT 协议开源，详情请参阅 [LICENSE](LICENSE) 文件。
-
----
-<div align="center">
-  <i>Built with ❤️ to make learning a flowing experience.</i>
+  <i>Built with care to make learning a flowing experience.</i>
 </div>

@@ -1,36 +1,30 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { API_BASE_URL } from './lib/config';
 import { Loader2 } from 'lucide-react';
 import TopBar from './components/TopBar';
 import SplitPane from './components/SplitPane';
 import ReaderPane from './components/ReaderPane';
 import AISidebar from './components/AISidebar';
+import HistoryDrawer from './components/HistoryDrawer';
+import KnowledgeBase from './components/KnowledgeBase';
 import { fetchWebContent } from './lib/scraper';
-import { streamChat } from './lib/chat';
+import { streamChat, streamKnowledgeBaseChat } from './lib/chat';
 import { saveArticle as dbSaveArticle, getAllArticles as dbGetAllArticles, deleteArticle as dbDeleteArticle, saveChatSession, getChatSession, updateArticleTags } from './lib/db';
+import { getLLMSettings } from './lib/llm';
 import { useTheme } from './hooks/useTheme';
-import { getSettings } from './lib/settings';
-import type { Article, ChatMessage, SidebarMode } from './types';
-
-type ViewMode = 'original' | 'translated';
-const GITHUB_MODELS_URL = 'https://models.inference.ai.azure.com/chat/completions';
+import type { Article, ChatMessage } from './types';
 
 export default function App() {
   const { theme, toggleTheme } = useTheme();
   const [currentArticle, setCurrentArticle] = useState<Article | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [sidebarMode, setSidebarMode] = useState<SidebarMode>('chat');
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [savedArticles, setSavedArticles] = useState<Article[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
-
-  // 翻译相关状态
-  const [originalContent, setOriginalContent] = useState<string | null>(null);
-  const [translatedContent, setTranslatedContent] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('original');
-  const [isTranslating, setIsTranslating] = useState(false);
+  const [activeTab, setActiveTab] = useState<'reader' | 'knowledge'>('reader');
+  const [chatMode, setChatMode] = useState<'article' | 'knowledge'>('article');
 
   // 用 ref 跟踪最新的 messages
   const messagesRef = useRef<ChatMessage[]>([]);
@@ -48,45 +42,20 @@ export default function App() {
   // ======== 异步 AI 打标 ========
   const fetchArticleTags = useCallback(async (article: Article) => {
     try {
-      const settings = getSettings();
-      const isGithub = settings.aiProvider === 'github';
-      if (isGithub && !settings.githubToken) return;
+      const messages = [
+        { role: 'system', content: 'You are a helpful assistant that extracts exactly 3-5 core technical tags from the given text.' },
+        { role: 'user', content: `Extract tags for this article. Title: ${article.title}\nContent: ${article.content.substring(0, 3000)}\nReturn ONLY a JSON array of strings like ["tag1", "tag2"]. No markdown formatting.` }
+      ];
+
+      const { fetchLLMResponse } = await import('./lib/llm');
+      const responseText = await fetchLLMResponse(messages);
 
       let tags: string[] = [];
-
-      if (isGithub) {
-        const resp = await fetch(GITHUB_MODELS_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${settings.githubToken}`
-          },
-          body: JSON.stringify({
-            messages: [
-              { role: 'system', content: 'You are a helpful assistant that extracts exactly 3-5 core technical tags from the given text.' },
-              { role: 'user', content: `Extract tags for this article. Title: ${article.title}\nContent: ${article.content.substring(0, 3000)}\nReturn ONLY a JSON array of strings like ["tag1", "tag2"]. No markdown formatting.` }
-            ],
-            model: 'gpt-4o-mini',
-            temperature: 0.1
-          })
-        });
-        if (!resp.ok) return;
-        const data = await resp.json();
-        try {
-          const content = data.choices[0].message.content.replace(/```json\n?/, '').replace(/```\n?/, '');
-          tags = JSON.parse(content);
-        } catch {
-          return;
-        }
-      } else {
-        const resp = await fetch(`${API_BASE_URL}/api/tags`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: article.title, content: article.content.substring(0, 3000) }),
-        });
-        if (!resp.ok) return;
-        const data = await resp.json();
-        tags = data.tags;
+      try {
+        const content = responseText.replace(/```json\n?/, '').replace(/```\n?/, '');
+        tags = JSON.parse(content);
+      } catch {
+        return; // JSON parses fault, ignore
       }
 
       if (tags && tags.length > 0) {
@@ -111,11 +80,6 @@ export default function App() {
       const article = await fetchWebContent(url);
       setCurrentArticle(article);
 
-      // 备份原文 + 重置翻译状态
-      setOriginalContent(article.content);
-      setTranslatedContent(null);
-      setViewMode('original');
-
       // 持久化到 IndexedDB
       await dbSaveArticle(article);
 
@@ -129,7 +93,7 @@ export default function App() {
       fetchArticleTags(article);
 
       const systemMsg: ChatMessage = {
-        id: crypto.randomUUID(),
+        id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).substring(2),
         role: 'system',
         content: `你是一个专业的学习助手。用户正在阅读以下文章，请基于文章内容回答用户的问题。回答时请使用中文，若涉及代码请使用 Markdown 代码块。\n\n---\n${article.content}\n---`,
         timestamp: Date.now(),
@@ -137,7 +101,6 @@ export default function App() {
 
       setMessages([systemMsg]);
       messagesRef.current = [systemMsg];
-      setSidebarMode('chat');
     } catch (err) {
       const message = err instanceof Error ? err.message : '抓取失败，请检查 URL 是否正确';
       setErrorMsg(message);
@@ -148,118 +111,20 @@ export default function App() {
     }
   }, []);
 
-  // 翻译/切换原文
-  const handleToggleTranslate = useCallback(async () => {
-    if (isTranslating || !currentArticle || !originalContent) return;
-
-    // 如果已有翻译结果 → 直接切换视图（毫秒级）
-    if (translatedContent) {
-      const nextMode = viewMode === 'original' ? 'translated' : 'original';
-      setViewMode(nextMode);
-      setCurrentArticle({
-        ...currentArticle,
-        content: nextMode === 'translated' ? translatedContent : originalContent,
-      });
-      return;
-    }
-
-    // 首次翻译 → 调用翻译 API
-    setIsTranslating(true);
-    setStatusMsg('正在启动【长文稳定翻译模式】。全篇翻译可能需要一些时间，请耐心等待...');
-    setErrorMsg(null);
-
-    try {
-      const settings = getSettings();
-      const isGithub = settings.aiProvider === 'github';
-
-      if (isGithub && !settings.githubToken) {
-        throw new Error('请先在"设置"中配置 GitHub Personal Access Token');
-      }
-
-      let translated = '';
-
-      if (isGithub) {
-        // GitHub Models Translation (Note: context length might be limited for very long articles)
-        const resp = await fetch(GITHUB_MODELS_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${settings.githubToken}`
-          },
-          body: JSON.stringify({
-            messages: [
-              { role: 'system', content: 'You are a professional translator. Translate the following markdown text into elegant fluent 中文. Preserve all markdown formatting, links, and code blocks exactly.' },
-              { role: 'user', content: originalContent }
-            ],
-            model: 'gpt-4o-mini',
-            temperature: 0.3
-          })
-        });
-        if (!resp.ok) {
-          const errText = await resp.text().catch(() => '');
-          if (resp.status === 401) throw new Error('GitHub Token 无效或已过期');
-          throw new Error(`翻译失败: HTTP ${resp.status} ${errText}`);
-        }
-        const data = await resp.json();
-        translated = data.choices?.[0]?.message?.content || '';
-      } else {
-        // 本地 Ollama 代理流式拆分翻译
-        const response = await fetch(`${API_BASE_URL}/api/translate`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            content: originalContent,
-            targetLanguage: '中文',
-          }),
-        });
-
-        if (!response.ok) {
-          const errData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
-          throw new Error(errData.error || `翻译失败: HTTP ${response.status}`);
-        }
-
-        const data = await response.json();
-        translated = data.translatedContent;
-      }
-
-      if (!translated) {
-        throw new Error('翻译结果为空');
-      }
-
-      setTranslatedContent(translated);
-      setViewMode('translated');
-      setCurrentArticle({
-        ...currentArticle,
-        content: translated,
-      });
-      // 翻译成功，清除提示
-      setStatusMsg(null);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '翻译失败';
-      setErrorMsg(message);
-      setStatusMsg(null); // 出错也清除提示
-      console.error('翻译失败:', err);
-      // 错误提示保留久一点
-      setTimeout(() => setErrorMsg(null), 8000);
-    } finally {
-      setIsTranslating(false);
-    }
-  }, [isTranslating, currentArticle, originalContent, translatedContent, viewMode]);
-
   // 发送聊天消息（流式）
   const handleSendMessage = useCallback(
     async (content: string) => {
       if (isStreaming) return;
 
       const userMsg: ChatMessage = {
-        id: crypto.randomUUID(),
+        id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).substring(2),
         role: 'user',
         content,
         timestamp: Date.now(),
       };
 
       const aiMsg: ChatMessage = {
-        id: crypto.randomUUID(),
+        id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).substring(2),
         role: 'assistant',
         content: '',
         timestamp: Date.now(),
@@ -271,9 +136,11 @@ export default function App() {
 
       setIsStreaming(true);
 
-      await streamChat(
+      const streamFunction = chatMode === 'knowledge' ? streamKnowledgeBaseChat : streamChat;
+
+      await streamFunction(
         newMessages,
-        (text) => {
+        (text: string) => {
           aiMsg.content += text;
           setMessages((prev) =>
             prev.map((m) => (m.id === aiMsg.id ? { ...m, content: aiMsg.content } : m))
@@ -288,7 +155,7 @@ export default function App() {
             saveChatSession(currentArticle.id, finalMessages).catch(console.error);
           }
         },
-        (error) => {
+        (error: string) => {
           aiMsg.content += `\n\n⚠️ 错误: ${error}`;
           setMessages((prev) =>
             prev.map((m) => (m.id === aiMsg.id ? { ...m, content: aiMsg.content } : m))
@@ -297,14 +164,14 @@ export default function App() {
         }
       );
     },
-    [isStreaming]
+    [isStreaming, activeTab, currentArticle]
   );
 
   // 划词选中文本 → 发送到对话
   const handleSelectText = useCallback(
     (text: string) => {
       handleSendMessage(text);
-      setSidebarMode('chat');
+      setIsHistoryOpen(false); // 若历史记录开着，则关闭
     },
     [handleSendMessage]
   );
@@ -312,9 +179,6 @@ export default function App() {
   // 加载历史文章（+ 恢复聊天记录）
   const handleLoadArticle = useCallback(async (article: Article) => {
     setCurrentArticle(article);
-    setOriginalContent(article.content);
-    setTranslatedContent(null);
-    setViewMode('original');
 
     // 尝试恢复之前的聊天记录
     const savedMessages = await getChatSession(article.id).catch(() => null);
@@ -324,7 +188,7 @@ export default function App() {
       messagesRef.current = savedMessages;
     } else {
       const systemMsg: ChatMessage = {
-        id: crypto.randomUUID(),
+        id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).substring(2),
         role: 'system',
         content: `你是一个专业的学习助手。用户正在阅读以下文章，请基于文章内容回答用户的问题。回答时请使用中文，若涉及代码请使用 Markdown 代码块。\n\n---\n${article.content}\n---`,
         timestamp: Date.now(),
@@ -332,7 +196,6 @@ export default function App() {
       setMessages([systemMsg]);
       messagesRef.current = [systemMsg];
     }
-    setSidebarMode('chat');
   }, []);
 
   // 删除历史文章（IndexedDB + 内存同步清理）
@@ -340,6 +203,121 @@ export default function App() {
     dbDeleteArticle(id).catch(console.error);
     setSavedArticles((prev) => prev.filter((a) => a.id !== id));
     setCurrentArticle((curr) => (curr?.id === id ? null : curr));
+  }, []);
+
+  // 添加到知识库
+  const handleAddToKB = useCallback(async (article: Article) => {
+    try {
+      setStatusMsg(`正在将 "${article.title}" 录入知识库...`);
+      const llmConf = getLLMSettings();
+
+      const blob = new Blob([article.content], { type: 'text/plain' });
+      // 生成 txt 文件名（去掉可能的非法字符）
+      const safeTitle = article.title.replace(/[\\/:*?"<>|]/g, '_') || 'article';
+      const file = new File([blob], `${safeTitle}.txt`, { type: 'text/plain' });
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/kb/upload', {
+        method: 'POST',
+        headers: {
+          'x-embedding-url': llmConf.embeddingBaseUrl,
+          'x-embedding-key': llmConf.embeddingApiKey,
+          'x-embedding-model': llmConf.embeddingModelName
+        },
+        body: formData
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || '上传失败');
+      }
+
+      // 更新状态并持久化
+      const updatedArticle = { ...article, isSavedToKB: true };
+      await dbSaveArticle(updatedArticle);
+      setSavedArticles((prev) => prev.map((a) => (a.id === article.id ? updatedArticle : a)));
+      if (currentArticle?.id === article.id) {
+        setCurrentArticle(updatedArticle);
+      }
+
+      setStatusMsg(`✅ 成功录入 "${article.title}" 到知识库`);
+      setTimeout(() => setStatusMsg(null), 3000);
+    } catch (e: any) {
+      console.error(e);
+      setErrorMsg(`录入知识库失败: ${e.message}`);
+    } finally {
+      setIsHistoryOpen(false); // 关闭侧边栏
+    }
+  }, [currentArticle]);
+
+  // 从知识库移除
+  const handleRemoveFromKB = useCallback(async (article: Article) => {
+    try {
+      setStatusMsg(`正在从知识库移除 "${article.title}"...`);
+      const safeTitle = article.title.replace(/[\\/:*?"<>|]/g, '_') || 'article';
+      const source = `${safeTitle}.txt`;
+
+      const res = await fetch('/api/kb/delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source })
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || '移除失败');
+      }
+
+      // 更新状态并持久化 (只是取消入库标记，不删除原文)
+      const updatedArticle = { ...article, isSavedToKB: false };
+      await dbSaveArticle(updatedArticle);
+      setSavedArticles((prev) => prev.map((a) => (a.id === article.id ? updatedArticle : a)));
+      if (currentArticle?.id === article.id) {
+        setCurrentArticle(updatedArticle);
+      }
+
+      setStatusMsg(`✅ 已从知识库移除 "${article.title}"`);
+      setTimeout(() => setStatusMsg(null), 3000);
+    } catch (e: any) {
+      console.error(e);
+      setErrorMsg(`移除知识库失败: ${e.message}`);
+    }
+  }, [currentArticle]);
+
+  // 从知识库面板上传的文档同步到本地状态
+  const handleKBUploadComplete = useCallback(async (file: File) => {
+    try {
+      // 动态导入解析器 (Code splitting)
+      const { parseFile } = await import('./lib/fileParser');
+      const text = await parseFile(file);
+
+      const ext = file.name.split('.').pop()?.toLowerCase();
+      const title = file.name.replace(/\.(md|txt|pdf|docx)$/i, '');
+      const timestamp = Date.now();
+
+      let fileType: Article['fileType'];
+      if (ext === 'pdf') fileType = 'pdf';
+      else if (ext === 'docx') fileType = 'docx';
+      else fileType = 'txt';
+
+      const article: Article = {
+        id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).substring(2),
+        url: `local://${timestamp}/${file.name}`,
+        title: title,
+        content: text,
+        fetchedAt: timestamp,
+        fileType,
+        fileData: file,
+        isSavedToKB: true  // 直接标记为入库
+      };
+
+      await dbSaveArticle(article);
+      setSavedArticles((prev) => [article, ...prev]);
+    } catch (err) {
+      console.error('KB UI Sync error:', err);
+    }
   }, []);
 
   // 处理本地文件导入
@@ -365,7 +343,7 @@ export default function App() {
       else fileType = 'txt';
 
       const article: Article = {
-        id: crypto.randomUUID(),
+        id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).substring(2),
         url: `local://${timestamp}/${file.name}`, // 伪协议 URL
         title: title,
         content: text,
@@ -375,9 +353,6 @@ export default function App() {
       };
 
       setCurrentArticle(article);
-      setOriginalContent(article.content);
-      setTranslatedContent(null);
-      setViewMode('original');
 
       // 持久化到 IndexedDB
       // 注意：IndexedDB 可能限制 Blob 大小，若过大可能需要单独处理
@@ -390,7 +365,7 @@ export default function App() {
 
       // 初始化 AI 对话上下文
       const systemMsg: ChatMessage = {
-        id: crypto.randomUUID(),
+        id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).substring(2),
         role: 'system',
         content: `你是一个专业的学习助手。用户正在阅读本地文件 "${file.name}"，请基于文件内容回答用户的问题。回答时请使用中文。\n\n---\n${article.content}\n---`,
         timestamp: Date.now(),
@@ -398,7 +373,6 @@ export default function App() {
 
       setMessages([systemMsg]);
       messagesRef.current = [systemMsg];
-      setSidebarMode('chat');
     } catch (err) {
       console.error('文件解析失败:', err);
       setErrorMsg(`解析失败: ${err instanceof Error ? err.message : '未知错误'}`);
@@ -419,19 +393,22 @@ export default function App() {
     await dbSaveArticle(updatedArticle);
   }, []);
 
+  // 计算当前在知识库中的文章
+  const kbArticles = savedArticles.filter(a => a.isSavedToKB);
+
   return (
     <>
       <TopBar
         onFetchUrl={handleFetchUrl}
         onFileUpload={handleFileUpload}
         isFetching={isFetching}
-        hasArticle={!!currentArticle}
-        articleContent={currentArticle?.content || ''}
-        viewMode={viewMode}
-        isTranslating={isTranslating}
-        onToggleTranslate={handleToggleTranslate}
         theme={theme}
         onToggleTheme={toggleTheme}
+        onToggleHistory={() => setIsHistoryOpen(!isHistoryOpen)}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        kbArticles={kbArticles}
+        onRemoveFromKB={handleRemoveFromKB}
       />
 
       {/* 状态提示 (蓝色) - 长时间显示 */}
@@ -456,28 +433,42 @@ export default function App() {
         </div>
       )}
 
-      <SplitPane
-        left={
-          <ReaderPane
-            article={currentArticle}
-            onSelectText={handleSelectText}
-            onUpdateArticle={handleUpdateArticle}
+      {activeTab === 'reader' ? (
+        <main className="flex-1 flex overflow-hidden p-3 pt-0 sm:px-4 sm:pb-4">
+          <SplitPane
+            left={
+              <ReaderPane
+                article={currentArticle}
+                onSelectText={handleSelectText}
+                onUpdateArticle={handleUpdateArticle}
+              />
+            }
+            right={
+              <AISidebar
+                messages={messages}
+                onSendMessage={handleSendMessage}
+                currentArticle={currentArticle}
+                onUpdateArticle={handleUpdateArticle}
+                isStreaming={isStreaming}
+                chatMode={chatMode}
+                onChatModeChange={setChatMode}
+              />
+            }
           />
-        }
-        right={
-          <AISidebar
-            messages={messages}
-            onSendMessage={handleSendMessage}
-            sidebarMode={sidebarMode}
-            onSwitchMode={setSidebarMode}
-            savedArticles={savedArticles}
-            onLoadArticle={handleLoadArticle}
-            onDeleteArticle={handleDeleteArticle}
-            currentArticle={currentArticle}
-            onUpdateArticle={handleUpdateArticle}
-            isStreaming={isStreaming}
-          />
-        }
+        </main>
+      ) : (
+        <div className="flex-1 overflow-hidden bg-[var(--color-bg-primary)]">
+          <KnowledgeBase onUploadComplete={handleKBUploadComplete} />
+        </div>
+      )}
+
+      <HistoryDrawer
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        articles={savedArticles}
+        onLoadArticle={handleLoadArticle}
+        onDeleteArticle={handleDeleteArticle}
+        onAddToKB={handleAddToKB}
       />
     </>
   );

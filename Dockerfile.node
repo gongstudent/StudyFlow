@@ -1,0 +1,18 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install dependencies using a dedicated backend-only package.json
+# This avoids peer dependency conflicts from front-end packages (e.g. dotenv v17 vs v16)
+COPY backend-package.json ./package.json
+RUN npm install --legacy-peer-deps
+
+# Copy the backend entry point
+COPY scraper.mjs ./
+
+# Create uploads directory
+RUN mkdir -p /app/uploads
+
+EXPOSE 3000
+
+CMD ["node", "scraper.mjs"]

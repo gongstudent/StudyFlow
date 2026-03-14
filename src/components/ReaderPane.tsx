@@ -149,10 +149,10 @@ export default function ReaderPane({ article, onSelectText, onUpdateArticle }: R
           <BookOpen size={28} className="text-[var(--color-text-tertiary)]" />
         </div>
         <div className="text-center">
-          <p className="text-[15px] font-medium text-[var(--color-text-secondary)] mb-1">
+          <p className="text-[17px] font-medium text-[var(--color-text-secondary)] mb-1">
             开始你的学习之旅
           </p>
-          <p className="text-[13px]">
+          <p className="text-[14px]">
             在顶部输入网页 URL，内容将显示在这里
           </p>
         </div>
@@ -184,10 +184,10 @@ export default function ReaderPane({ article, onSelectText, onUpdateArticle }: R
       <div className="w-full px-10 py-6">
         {/* 文章标题 */}
         <div className="mb-6">
-          <h1 className="text-[28px] font-bold text-[var(--color-text-primary)] leading-tight mb-2">
+          <h1 className="text-[32px] font-bold text-[var(--color-text-primary)] leading-tight mb-2">
             {article.title}
           </h1>
-          <div className="flex items-center gap-2 text-[13px] text-[var(--color-text-tertiary)]">
+          <div className="flex items-center gap-2 text-[14px] text-[var(--color-text-tertiary)]">
             <FileText size={13} />
             <a
               href={article.url}

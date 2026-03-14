@@ -4,13 +4,14 @@
 /* Based on UI/UX Pro Max design system: Learning Indigo + Progress Green */
 @layer base {
   :root {
-    /* Light Mode (Original) */
-    --color-bg-primary: #fafafe;
+    /* Light Mode (New Card UI) */
+    --color-bg-primary: #f8f9fc;
     --color-bg-secondary: #f1f0fb;
     --color-bg-tertiary: #e8e7f3;
-    --color-bg-hover: #deddf0;
-    --color-bg-sidebar: #f5f4fd;
-    --color-bg-input: #f1f0fb;
+    --color-bg-hover: #f1f5f9;
+    --color-bg-sidebar: #ffffff;
+    --color-bg-card: #ffffff;
+    --color-bg-input: #f1f5f9;
     --color-bg-bubble-user: #4338ca;
     --color-bg-bubble-ai: #f1f0fb;
     --color-bg-code: #eef0f8;
@@ -38,16 +39,18 @@
   }
 
   :root[data-theme='dark'] {
-    /* Dark Mode (New) - Slate/Indigo Theme */
-    --color-bg-primary: #0f172a;
+    /* Dark Mode (New Card UI) */
+    --color-bg-primary: #020617;
+    /* Slate 950 */
+    --color-bg-secondary: #0f172a;
     /* Slate 900 */
-    --color-bg-secondary: #1e293b;
+    --color-bg-tertiary: #1e293b;
     /* Slate 800 */
-    --color-bg-tertiary: #334155;
-    /* Slate 700 */
-    --color-bg-hover: #334155;
-    /* Slate 700 */
+    --color-bg-hover: #1e293b;
+    /* Slate 800 */
     --color-bg-sidebar: #0f172a;
+    /* Slate 900 */
+    --color-bg-card: #0f172a;
     /* Slate 900 */
     --color-bg-input: #1e293b;
     /* Slate 800 */
@@ -93,6 +96,7 @@
   --color-bg-tertiary: var(--color-bg-tertiary);
   --color-bg-hover: var(--color-bg-hover);
   --color-bg-sidebar: var(--color-bg-sidebar);
+  --color-bg-card: var(--color-bg-card);
   --color-bg-input: var(--color-bg-input);
   --color-bg-bubble-user: var(--color-bg-bubble-user);
   --color-bg-bubble-ai: var(--color-bg-bubble-ai);
@@ -132,7 +136,7 @@
 }
 
 html {
-  font-size: 16px;
+  font-size: 18px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

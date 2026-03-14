@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  studyflow-web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    ports:
+      - "5173:80"
+    depends_on:
+      - studyflow-api
+    networks:
+      - studyflow-network
+    restart: unless-stopped
+
+  studyflow-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.node
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - CROSSTARGET=http://localhost:5173
+      # The API needs to know where Qdrant is located within the Docker network
+      - QDRANT_URL=http://qdrant:6333
+    depends_on:
+      - qdrant
+    networks:
+      - studyflow-network
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    networks:
+      - studyflow-network
+    restart: unless-stopped
+
+volumes:
+  qdrant_storage:
+
+
+networks:
+  studyflow-network:
+    driver: bridge

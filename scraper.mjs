@@ -1,8 +1,18 @@
 import express from 'express';
+import crypto from 'crypto';
 import cors from 'cors';
 import http from 'http';
 import https from 'https';
 import { URL } from 'url';
+import fs from 'fs';
+import path from 'path';
+import multer from 'multer';
+import dotenv from 'dotenv';
+import { QdrantClient } from '@qdrant/js-client-rest';
+import { PDFParse } from 'pdf-parse';
+import mammoth from 'mammoth';
+
+dotenv.config();
 
 const app = express();
 const PORT = 3000;
@@ -38,6 +48,47 @@ const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:7b';
 const OLLAMA_CHAT_API = `${OLLAMA_HOST}/api/chat`;
 
 console.log(`[Ollama] Using model: ${OLLAMA_MODEL} at ${OLLAMA_HOST}`);
+
+// ============================================================
+// File Upload & Vector DB (Qdrant) Configuration
+// ============================================================
+
+const uploadDir = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+const upload = multer({ dest: uploadDir });
+
+// Use environment variable for Qdrant, defaulting to localhost for local testing
+const QDRANT_URL = process.env.QDRANT_URL || 'http://localhost:6333';
+console.log(`[Qdrant] Assuming Qdrant is running at ${QDRANT_URL}`);
+const qdrantClient = new QdrantClient({ url: QDRANT_URL });
+const COLLECTION_NAME = process.env.QDRANT_COLLECTION || 'studyflow_kb';
+
+// Lazy Qdrant collection initialization - called on first upload request
+let qdrantReady = false;
+async function ensureCollection() {
+    try {
+        const collections = await qdrantClient.getCollections();
+        const exists = collections.collections.some(c => c.name === COLLECTION_NAME);
+        if (!exists) {
+            console.log(`[Qdrant] Creating collection: ${COLLECTION_NAME}`);
+            // Use 768 as default but it will be updated on first upsert
+            await qdrantClient.createCollection(COLLECTION_NAME, {
+                vectors: { size: 768, distance: 'Cosine' }
+            });
+            console.log(`[Qdrant] Collection ${COLLECTION_NAME} created.`);
+        } else {
+            console.log(`[Qdrant] Collection ${COLLECTION_NAME} exists.`);
+        }
+        qdrantReady = true;
+    } catch (e) {
+        console.error(`[Qdrant] Not available at ${QDRANT_URL}: ${e.message}`);
+        qdrantReady = false;
+    }
+}
+// Try once at startup (non-blocking)
+ensureCollection().catch(() => { });
 
 // ============================================================
 // Helper Functions (Retry Logic)
@@ -468,44 +519,708 @@ app.post('/api/tags', async (req, res) => {
     }
 });
 
-// 6. AI Draft (Ollama)
-app.post('/api/generate-draft', async (req, res) => {
-    const { content, type } = req.body;
-    if (!content) return res.status(400).json({ error: 'Missing content' });
+// ============================================================
+// OpenAI-Compatible LLM Proxy (Avoid Browser CORS)
+// - Used by frontend for: chat streaming, non-stream calls, and connection tests
+// - Similar to /api/kb/chat but without RAG augmentation
+// ============================================================
 
-    const PROMPTS = {
-        blog: `You are a senior tech blogger. Write an engaging technical blog post based on the provided content. Requirements: 1. Catchy title with Emojis. 2. Clear structure: Intro, Core Points (with code if applicable), Summary. 3. Humorous yet professional tone. 4. Output in Markdown.`,
-        summary: `You are an academic assistant. Generate a structured reading note. Requirements: 1. Core Concepts. 2. Key Logic Analysis. 3. Takeaways (List). 4. Unresolved Questions. 5. Output in Markdown.`
-    };
+function normalizeBaseUrl(input) {
+    const endpoint = String(input || '').trim();
+    return endpoint.endsWith('/') ? endpoint.slice(0, -1) : endpoint;
+}
 
-    const systemPrompt = PROMPTS[type] || PROMPTS.blog;
-    const excerpt = content.slice(0, 5000);
-
+function ensureHttpUrl(urlStr) {
+    let parsed;
     try {
-        const ollamaBody = {
-            model: OLLAMA_MODEL,
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: excerpt }
-            ],
-            stream: false,
-            options: { temperature: 0.7 }
-        };
+        parsed = new URL(urlStr);
+    } catch {
+        throw new Error('Invalid Base URL');
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        throw new Error('Base URL must be http(s)');
+    }
+    return parsed;
+}
 
-        const result = await ollamaRequestWithRetry(
-            OLLAMA_CHAT_API,
-            ollamaBody,
+function isLikelyOllamaNative(endpoint) {
+    // Heuristic: Ollama native endpoints typically live at :11434 without /v1.
+    return endpoint.includes('11434') && !endpoint.includes('/v1');
+}
+
+function buildLegacyPrompt(messages) {
+    return messages.map(m => `${m.role}: ${m.content}`).join('\n') + '\nassistant:';
+}
+
+async function readResponseTextSafe(resp) {
+    try {
+        return await resp.text();
+    } catch {
+        return '';
+    }
+}
+
+async function fetchJsonWithTimeout(url, options, timeoutMs) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        const resp = await fetch(url, { ...options, signal: controller.signal });
+        const text = await readResponseTextSafe(resp);
+        let json = null;
+        if (text) {
+            try { json = JSON.parse(text); } catch { /* ignore */ }
+        }
+        return { resp, text, json };
+    } finally {
+        clearTimeout(timeoutId);
+    }
+}
+
+// LLM Connectivity Test (chat or embedding) - server-side to avoid CORS
+app.post('/api/llm/test', async (req, res) => {
+    try {
+        const { target, settings } = req.body || {};
+        const which = String(target || '').trim();
+        if (which !== 'chat' && which !== 'embedding') {
+            return res.status(400).json({ ok: false, error: 'Missing target (chat|embedding)' });
+        }
+        if (!settings || typeof settings !== 'object') {
+            return res.status(400).json({ ok: false, error: 'Missing settings' });
+        }
+
+        if (which === 'chat') {
+            const baseUrl = normalizeBaseUrl(settings.baseUrl);
+            const apiKey = String(settings.apiKey || '');
+            const modelName = String(settings.modelName || '');
+            const protocol = String(settings.protocol || 'chat'); // 'chat' | 'legacy'
+
+            if (!baseUrl) return res.status(400).json({ ok: false, error: 'Missing chat Base URL' });
+            if (!modelName) return res.status(400).json({ ok: false, error: 'Missing chat model name' });
+
+            ensureHttpUrl(baseUrl);
+
+            const headers = { 'Content-Type': 'application/json' };
+            if (apiKey.trim()) headers['Authorization'] = `Bearer ${apiKey.trim()}`;
+
+            const messages = [{ role: 'user', content: 'Hi' }];
+            const isOllamaNative = isLikelyOllamaNative(baseUrl);
+
+            let finalUrl = '';
+            let body = {};
+
+            if (isOllamaNative) {
+                finalUrl = `${baseUrl}/api/chat`;
+                body = { model: modelName, messages, stream: false };
+            } else if (protocol === 'legacy') {
+                finalUrl = `${baseUrl}/completions`;
+                body = { model: modelName, prompt: buildLegacyPrompt(messages), max_tokens: 5 };
+            } else {
+                finalUrl = `${baseUrl}/chat/completions`;
+                body = { model: modelName, messages, max_tokens: 5 };
+            }
+
+            const { resp, text, json } = await fetchJsonWithTimeout(
+                finalUrl,
+                { method: 'POST', headers, body: JSON.stringify(body) },
+                8000
+            );
+
+            if (!resp.ok) {
+                const detail = text ? text.slice(0, 180) : '';
+                return res.status(resp.status).json({ ok: false, error: `Chat LLM Error: HTTP ${resp.status}${detail ? ` - ${detail}` : ''}` });
+            }
+            // Minimal sanity check: JSON is parseable
+            if (!json) {
+                if ((text || '').trim().startsWith('<')) {
+                    return res.status(502).json({ ok: false, error: 'Received HTML instead of API JSON. Check Base URL (maybe missing /v1).' });
+                }
+                return res.status(502).json({ ok: false, error: 'Failed to parse JSON response from chat endpoint.' });
+            }
+
+            return res.json({ ok: true });
+        }
+
+        // embedding test
+        const embeddingBaseUrl = normalizeBaseUrl(settings.embeddingBaseUrl);
+        const embeddingApiKey = String(settings.embeddingApiKey || '');
+        const embeddingModelName = String(settings.embeddingModelName || '');
+
+        if (!embeddingBaseUrl) return res.status(400).json({ ok: false, error: 'Missing embedding Base URL' });
+        if (!embeddingModelName) return res.status(400).json({ ok: false, error: 'Missing embedding model name' });
+
+        ensureHttpUrl(embeddingBaseUrl);
+
+        const isOllamaNative = isLikelyOllamaNative(embeddingBaseUrl);
+        const finalUrl = isOllamaNative ? `${embeddingBaseUrl}/api/embeddings` : `${embeddingBaseUrl}/embeddings`;
+
+        const headers = { 'Content-Type': 'application/json' };
+        if (embeddingApiKey.trim()) headers['Authorization'] = `Bearer ${embeddingApiKey.trim()}`;
+
+        const body = isOllamaNative
+            ? { model: embeddingModelName, prompt: 'ping' }
+            : { model: embeddingModelName, input: 'ping' };
+
+        const { resp, text, json } = await fetchJsonWithTimeout(
+            finalUrl,
+            { method: 'POST', headers, body: JSON.stringify(body) },
+            8000
+        );
+
+        if (!resp.ok) {
+            const detail = text ? text.slice(0, 180) : '';
+            return res.status(resp.status).json({ ok: false, error: `Embedding Error: HTTP ${resp.status}${detail ? ` - ${detail}` : ''}` });
+        }
+        if (!json) {
+            return res.status(502).json({ ok: false, error: 'Failed to parse JSON response from embedding endpoint.' });
+        }
+
+        // Minimal vector presence check (supports Ollama native + OpenAI)
+        const vector = isOllamaNative ? json.embedding : json.data?.[0]?.embedding;
+        if (!Array.isArray(vector) || vector.length === 0) {
+            return res.status(502).json({ ok: false, error: 'Embedding endpoint returned no vector.' });
+        }
+
+        return res.json({ ok: true, dim: vector.length });
+    } catch (err) {
+        return res.status(502).json({ ok: false, error: err instanceof Error ? err.message : String(err) });
+    }
+});
+
+// Non-stream LLM call (chat/legacy) - returns plain content
+app.post('/api/llm/complete', async (req, res) => {
+    try {
+        const { messages } = req.body || {};
+        if (!messages || !Array.isArray(messages) || messages.length === 0) {
+            return res.status(400).json({ error: 'Missing messages' });
+        }
+
+        const chatBaseUrl = req.headers['x-chat-url'] || OLLAMA_HOST;
+        const chatApiKey = req.headers['x-chat-key'] || '';
+        const chatModel = req.headers['x-chat-model'] || OLLAMA_MODEL;
+        const chatProtocol = req.headers['x-chat-protocol'] || 'chat';
+
+        let endpoint = normalizeBaseUrl(chatBaseUrl);
+        ensureHttpUrl(endpoint);
+
+        const isOllamaNative = isLikelyOllamaNative(endpoint);
+        const headers = { 'Content-Type': 'application/json' };
+        if (String(chatApiKey).trim()) headers['Authorization'] = `Bearer ${String(chatApiKey).trim()}`;
+
+        let finalUrl = '';
+        let body = {};
+
+        if (isOllamaNative) {
+            finalUrl = `${endpoint}/api/chat`;
+            body = { model: chatModel, messages, stream: false };
+        } else if (chatProtocol === 'legacy') {
+            finalUrl = `${endpoint}/completions`;
+            body = { model: chatModel, prompt: buildLegacyPrompt(messages), stream: false };
+        } else {
+            finalUrl = `${endpoint}/chat/completions`;
+            body = { model: chatModel, messages, stream: false };
+        }
+
+        const { resp, text, json } = await fetchJsonWithTimeout(
+            finalUrl,
+            { method: 'POST', headers, body: JSON.stringify(body) },
             120000
         );
 
-        if (result.statusCode !== 200) throw new Error(`Ollama Error: ${result.statusCode}`);
-        const data = JSON.parse(result.body);
-        const draft = data?.message?.content || '';
+        if (!resp.ok) {
+            return res.status(resp.status).json({ error: `LLM Error: HTTP ${resp.status} - ${text.slice(0, 300)}` });
+        }
+        if (!json) {
+            return res.status(502).json({ error: 'Failed to parse LLM JSON response' });
+        }
 
-        res.json({ draft });
+        let content = '';
+        if (isOllamaNative) {
+            content = json?.message?.content || '';
+        } else if (chatProtocol === 'legacy') {
+            content = json?.choices?.[0]?.text || '';
+        } else {
+            content = json?.choices?.[0]?.message?.content || '';
+        }
+
+        return res.json({ content });
     } catch (err) {
-        res.status(502).json({ error: String(err) });
+        return res.status(502).json({ error: err instanceof Error ? err.message : String(err) });
     }
+});
+
+// Stream LLM response as SSE: data: {"text":"..."}\n\n and data: [DONE]\n\n
+app.post('/api/llm/chat', async (req, res) => {
+    try {
+        const { messages } = req.body || {};
+        if (!messages || !Array.isArray(messages) || messages.length === 0) {
+            return res.status(400).json({ error: 'Missing messages' });
+        }
+
+        const chatBaseUrl = req.headers['x-chat-url'] || OLLAMA_HOST;
+        const chatApiKey = req.headers['x-chat-key'] || '';
+        const chatModel = req.headers['x-chat-model'] || OLLAMA_MODEL;
+        const chatProtocol = req.headers['x-chat-protocol'] || 'chat';
+
+        let endpoint = normalizeBaseUrl(chatBaseUrl);
+        ensureHttpUrl(endpoint);
+
+        const isOllamaNative = isLikelyOllamaNative(endpoint);
+        const headers = { 'Content-Type': 'application/json' };
+        if (String(chatApiKey).trim()) headers['Authorization'] = `Bearer ${String(chatApiKey).trim()}`;
+
+        let finalChatUrl = '';
+        let finalChatBody = {};
+
+        if (isOllamaNative) {
+            finalChatUrl = `${endpoint}/api/chat`;
+            finalChatBody = {
+                model: chatModel,
+                messages,
+                stream: true
+            };
+        } else {
+            finalChatUrl = chatProtocol === 'legacy' ? `${endpoint}/completions` : `${endpoint}/chat/completions`;
+            finalChatBody = {
+                model: chatModel,
+                stream: true,
+            };
+            if (chatProtocol === 'legacy') {
+                finalChatBody.prompt = buildLegacyPrompt(messages);
+            } else {
+                finalChatBody.messages = messages;
+            }
+        }
+
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+
+        const llmReq = await fetch(finalChatUrl, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(finalChatBody)
+        });
+
+        if (!llmReq.ok) {
+            const err = await readResponseTextSafe(llmReq);
+            res.write(`data: ${JSON.stringify({ error: `Chat LLM Error: ${llmReq.status} - ${err}` })}\n\n`);
+            res.write('data: [DONE]\n\n');
+            return res.end();
+        }
+
+        const reader = llmReq.body?.getReader();
+        if (!reader) {
+            res.write(`data: ${JSON.stringify({ error: 'No readable stream from LLM response.' })}\n\n`);
+            res.write('data: [DONE]\n\n');
+            return res.end();
+        }
+
+        const decoder = new TextDecoder("utf-8");
+        let buffer = '';
+
+        const emitText = (text) => {
+            if (!text) return;
+            res.write(`data: ${JSON.stringify({ text })}\n\n`);
+        };
+
+        const handleLine = (line) => {
+            const trimmed = String(line || '').trim();
+            if (!trimmed) return;
+
+            // OpenAI-style SSE
+            if (trimmed.startsWith('data:')) {
+                const dataStr = trimmed.replace(/^data:/, '').trim();
+                if (dataStr === '[DONE]') {
+                    res.write('data: [DONE]\n\n');
+                    return;
+                }
+                try {
+                    const parsed = JSON.parse(dataStr);
+                    // Chat completions streaming
+                    if (parsed.choices?.[0]?.delta?.content) {
+                        emitText(parsed.choices[0].delta.content);
+                    }
+                    // Legacy completions streaming
+                    else if (parsed.choices?.[0]?.text) {
+                        emitText(parsed.choices[0].text);
+                    }
+                } catch {
+                    // ignore chunking breaks
+                }
+                return;
+            }
+
+            // Ollama native: NDJSON lines
+            if (trimmed.startsWith('{')) {
+                try {
+                    const d = JSON.parse(trimmed);
+                    if (d.message?.content) emitText(d.message.content);
+                    if (d.done) res.write('data: [DONE]\n\n');
+                } catch {
+                    // ignore
+                }
+            }
+        };
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+            for (const line of lines) handleLine(line);
+        }
+        if (buffer) handleLine(buffer);
+
+        res.write('data: [DONE]\n\n');
+        res.end();
+    } catch (err) {
+        console.error('[LLM Chat Proxy Error]', err);
+        if (!res.headersSent) {
+            res.status(500).json({ error: String(err) });
+        } else {
+            res.write(`data: ${JSON.stringify({ error: String(err) })}\n\n`);
+            res.write('data: [DONE]\n\n');
+            res.end();
+        }
+    }
+});
+
+// 6. Knowledge Base Upload (RAG)
+app.post('/api/kb/upload', upload.single('file'), async (req, res) => {
+    try {
+        const file = req.file;
+        if (!file) {
+            console.error('[KB Upload] Error: No file uploaded. req.file is undefined.');
+            return res.status(400).json({ error: 'No file uploaded to serve. Please check if your form field name is "file".' });
+        }
+
+        // Parse custom embedding config from headers or body
+        // Example: pass "X-Embedding-Url" from frontend settings
+        const embeddingBaseUrl = req.headers['x-embedding-url'] || process.env.EMBEDDING_BASE_URL || OLLAMA_HOST;
+        const embeddingApiKey = req.headers['x-embedding-key'] || process.env.EMBEDDING_API_KEY || '';
+        const embeddingModel = req.headers['x-embedding-model'] || process.env.EMBEDDING_MODEL_NAME || 'nomic-embed-text';
+
+        if (!qdrantReady) {
+            console.log('[KB Upload] Qdrant not ready, trying to reconnect...');
+            await ensureCollection();
+            if (!qdrantReady) {
+                throw new Error(`向量数据库 (Qdrant) 未连接，请确保 Qdrant 已在 ${QDRANT_URL} 启动。如果你正在本地运行，请先启动 Docker 中的 Qdrant 服务。`);
+            }
+        }
+
+        console.log(`[KB Upload] Processing ${file.originalname} using model ${embeddingModel}`);
+
+        // 1. Extract text from document based on extension
+        const ext = path.extname(file.originalname).toLowerCase();
+        let fullText = '';
+
+        if (ext === '.pdf') {
+            const pdfBuffer = fs.readFileSync(file.path);
+            // pdf-parse v2+ uses the PDFParse class
+            const parser = new PDFParse({ data: pdfBuffer });
+            const result = await parser.getText();
+            fullText = result.text;
+            await parser.destroy();
+        } else if (ext === '.docx') {
+            const result = await mammoth.extractRawText({ path: file.path });
+            fullText = result.value;
+        } else {
+            // .txt, .md, or any plain text
+            fullText = fs.readFileSync(file.path, 'utf-8');
+        }
+
+        if (!fullText.trim()) {
+            throw new Error('无法从文件中提取文本内容，请检查文件格式');
+        }
+
+        // 2. Split text into overlapping chunks (inline implementation)
+        const CHUNK_SIZE = 500;
+        const CHUNK_OVERLAP = 50;
+        const chunks = [];
+        let start = 0;
+        while (start < fullText.length) {
+            const end = Math.min(start + CHUNK_SIZE, fullText.length);
+            chunks.push(fullText.slice(start, end).trim());
+            if (end >= fullText.length) break;
+            start += CHUNK_SIZE - CHUNK_OVERLAP;
+        }
+        // Filter out tiny chunks
+        const validChunks = chunks.filter(c => c.length > 20);
+        console.log(`[KB Upload] Split into ${validChunks.length} chunks`);
+
+        // 3. Generate embeddings & upload to Qdrant
+        let endpoint = embeddingBaseUrl.trim();
+        if (endpoint.endsWith('/')) endpoint = endpoint.slice(0, -1);
+
+        // Handle Ollama compat vs OpenAI standard embedding endpoints
+        const isOllamaPath = endpoint.includes('11434') && !endpoint.includes('/v1');
+        const finalUrl = isOllamaPath ? `${endpoint}/api/embeddings` : `${endpoint}/embeddings`;
+
+        const headers = { 'Content-Type': 'application/json' };
+        if (embeddingApiKey.trim()) {
+            headers['Authorization'] = `Bearer ${embeddingApiKey.trim()}`;
+        }
+
+        const points = [];
+        for (let i = 0; i < validChunks.length; i++) {
+            const chunkText = validChunks[i];
+            const body = isOllamaPath
+                ? { model: embeddingModel, prompt: chunkText }
+                : { model: embeddingModel, input: chunkText };
+
+            const embedRes = await fetch(finalUrl, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(body)
+            });
+
+            if (!embedRes.ok) {
+                const errTxt = await embedRes.text();
+                throw new Error(`Embedding failed for chunk ${i}: ${embedRes.status} - ${errTxt}`);
+            }
+
+            const embedData = await embedRes.json();
+            const vector = isOllamaPath ? embedData.embedding : embedData.data[0].embedding;
+
+            points.push({
+                id: crypto.randomUUID(),
+                vector: vector,
+                payload: {
+                    content: chunkText,
+                    source: file.originalname,
+                    chunk_index: i
+                }
+            });
+
+            // tiny delay to prevent local LLM overload
+            await sleep(100);
+        }
+
+        // Upsert to Qdrant
+        await qdrantClient.upsert(COLLECTION_NAME, {
+            wait: true,
+            points: points
+        });
+
+        // Cleanup local uploaded file
+        fs.unlinkSync(file.path);
+
+        res.json({
+            success: true,
+            message: `Successfully indexed ${file.originalname}`,
+            chunks: validChunks.length
+        });
+    } catch (err) {
+        console.error('[KB Upload Error]', err);
+        // Ensure cleanup even on error
+        if (req.file?.path && fs.existsSync(req.file.path)) {
+            fs.unlinkSync(req.file.path);
+        }
+        res.status(500).json({ error: String(err) });
+    }
+});
+
+// 7. Knowledge Base Delete
+app.delete('/api/kb/delete', async (req, res) => {
+    try {
+        const { source } = req.body;
+        if (!source) return res.status(400).json({ error: 'Source filename is required' });
+
+        if (!qdrantReady) {
+            await ensureCollection();
+            if (!qdrantReady) throw new Error('向量数据库 (Qdrant) 未连接');
+        }
+
+        console.log(`[KB Delete] Deleting records for source: ${source}`);
+        await qdrantClient.delete(COLLECTION_NAME, {
+            filter: {
+                must: [{ key: 'source', match: { value: source } }]
+            }
+        });
+
+        res.json({ success: true, message: `已从知识库删除 ${source}` });
+    } catch (err) {
+        console.error('[KB Delete Error]', err);
+        res.status(500).json({ error: String(err) });
+    }
+});
+
+// 7. Knowledge Base Chat (RAG Retrieval)
+app.post('/api/kb/chat', async (req, res) => {
+    try {
+        const { messages } = req.body;
+        if (!messages || messages.length === 0) {
+            return res.status(400).json({ error: 'Missing messages' });
+        }
+
+        // Get the last user message for embedding search
+        const lastMessage = messages[messages.length - 1].content;
+
+        // Custom configs for both chat and embedding
+        const chatBaseUrl = req.headers['x-chat-url'] || OLLAMA_HOST;
+        const chatApiKey = req.headers['x-chat-key'] || '';
+        const chatModel = req.headers['x-chat-model'] || OLLAMA_MODEL;
+        const chatProtocol = req.headers['x-chat-protocol'] || 'chat'; // 'chat' or 'legacy'
+
+        const embeddingBaseUrl = req.headers['x-embedding-url'] || process.env.EMBEDDING_BASE_URL || OLLAMA_HOST;
+        const embeddingApiKey = req.headers['x-embedding-key'] || process.env.EMBEDDING_API_KEY || '';
+        const embeddingModel = req.headers['x-embedding-model'] || process.env.EMBEDDING_MODEL_NAME || 'nomic-embed-text';
+
+        // 1. Generate embedding for query
+        let embedEndpoint = embeddingBaseUrl.trim();
+        if (embedEndpoint.endsWith('/')) embedEndpoint = embedEndpoint.slice(0, -1);
+        const isOllamaEmbed = embedEndpoint.includes('11434') && !embedEndpoint.includes('/v1');
+        const embedUrl = isOllamaEmbed ? `${embedEndpoint}/api/embeddings` : `${embedEndpoint}/embeddings`;
+
+        const embedHeaders = { 'Content-Type': 'application/json' };
+        if (embeddingApiKey.trim()) embedHeaders['Authorization'] = `Bearer ${embeddingApiKey.trim()}`;
+
+        const embedBody = isOllamaEmbed
+            ? { model: embeddingModel, prompt: lastMessage }
+            : { model: embeddingModel, input: lastMessage };
+
+        const embedRes = await fetch(embedUrl, { method: 'POST', headers: embedHeaders, body: JSON.stringify(embedBody) });
+        if (!embedRes.ok) throw new Error(`Query embedding failed: ${await embedRes.text()}`);
+
+        const embedData = await embedRes.json();
+        const queryVector = isOllamaEmbed ? embedData.embedding : embedData.data[0].embedding;
+
+        // 2. Search Qdrant
+        const searchRes = await qdrantClient.search(COLLECTION_NAME, {
+            vector: queryVector,
+            limit: 3, // Top K
+            with_payload: true,
+            // score_threshold: 0.5 // Removed because cosine range varies
+        });
+
+        console.log(`[KB Chat] Search found ${searchRes.length} results for query.`);
+
+        const contextTexts = searchRes.map(hit => `[source: ${hit.payload.source}] ${hit.payload.content}`).join('\n\n');
+
+        // 3. Construct Augmented Prompt
+        const systemPrompt = `你是一个专业的本地知识库 AI 助手。请**严格**基于以下提供的参考资料（Context）来回答用户的问题。如果参考资料中没有相关信息，请明确回答“抱歉，在知识库中未找到相关答案。”，绝不要编造内容。使用中文回答，如果涉及代码，请使用 Markdown 格式。\n\n--- 参考资料 (Context) ---\n${contextTexts}\n-----------------------\n`;
+
+        const augmentedMessages = [
+            { role: 'system', content: systemPrompt },
+            ...messages
+        ];
+
+        // 4. Stream response using specified Chat LLM limits
+        let chatEndpoint = chatBaseUrl.trim();
+        if (chatEndpoint.endsWith('/')) chatEndpoint = chatEndpoint.slice(0, -1);
+
+        const isChatOllama = chatEndpoint.includes('11434') && !chatEndpoint.includes('/v1');
+        let finalChatUrl = '';
+        let finalChatBody = {};
+
+        if (isChatOllama) {
+            finalChatUrl = `${chatEndpoint}/api/chat`;
+            finalChatBody = {
+                model: chatModel,
+                messages: augmentedMessages,
+                stream: true
+            };
+        } else {
+            finalChatUrl = chatProtocol === 'chat' ? `${chatEndpoint}/chat/completions` : `${chatEndpoint}/completions`;
+            finalChatBody = {
+                model: chatModel,
+                stream: true,
+            };
+            if (chatProtocol === 'chat') {
+                finalChatBody.messages = augmentedMessages;
+            } else {
+                finalChatBody.prompt = augmentedMessages.map(m => `${m.role}: ${m.content}`).join('\n') + '\nassistant:';
+            }
+        }
+
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+
+        // Use Node fetch to stream (instead of ollamaStreamWithRetry which is coupled to old format slightly)
+        const chatHeaders = { 'Content-Type': 'application/json' };
+        if (chatApiKey.trim()) chatHeaders['Authorization'] = `Bearer ${chatApiKey.trim()}`;
+
+        const llmReq = await fetch(finalChatUrl, {
+            method: 'POST',
+            headers: chatHeaders,
+            body: JSON.stringify(finalChatBody)
+        });
+
+        if (!llmReq.ok) {
+            const err = await llmReq.text();
+            res.write(`data: ${JSON.stringify({ error: `Chat LLM Error: ${llmReq.status} - ${err}` })}\n\n`);
+            res.write('data: [DONE]\n\n');
+            return res.end();
+        }
+
+        // Extremely native stream piping to SSE
+        const reader = llmReq.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split('\n');
+
+            for (const line of lines) {
+                if (!line.trim().startsWith('data:')) {
+                    if (line.trim().startsWith('{')) { // bare json objects (old ollama)
+                        try {
+                            const d = JSON.parse(line.trim());
+                            if (d.message?.content) res.write(`data: ${JSON.stringify({ text: d.message.content })}\n\n`);
+                            if (d.done) { res.write('data: [DONE]\n\n'); }
+                        } catch (e) { }
+                    }
+                    continue;
+                }
+
+                const dataStr = line.replace(/^data:/, '').trim();
+                if (dataStr === '[DONE]') {
+                    res.write('data: [DONE]\n\n');
+                    continue;
+                }
+
+                try {
+                    const parsed = JSON.parse(dataStr);
+                    // Standard OpenAI
+                    if (parsed.choices && parsed.choices.length > 0 && parsed.choices[0].delta?.content) {
+                        res.write(`data: ${JSON.stringify({ text: parsed.choices[0].delta.content })}\n\n`);
+                    }
+                    // Or Ollama
+                    else if (parsed.message?.content) {
+                        res.write(`data: ${JSON.stringify({ text: parsed.message.content })}\n\n`);
+                    }
+                } catch (e) { /* ignore chunking breaks */ }
+            }
+        }
+        res.write('data: [DONE]\n\n');
+        res.end();
+
+    } catch (err) {
+        console.error('[KB Chat Error]', err);
+        if (!res.headersSent) {
+            res.status(500).json({ error: String(err) });
+        } else {
+            res.write(`data: ${JSON.stringify({ error: String(err) })}\n\n`);
+            res.write('data: [DONE]\n\n');
+            res.end();
+        }
+    }
+});
+
+// 7. Generic Error Handler (Catch Multer/Express errors)
+app.use((err, req, res, next) => {
+    console.error('[Global Error]', err);
+    if (err instanceof multer.MulterError) {
+        return res.status(400).json({ error: `Multer Error: ${err.message}` });
+    }
+    res.status(500).json({ error: String(err.message || err) });
 });
 
 // Start Server
