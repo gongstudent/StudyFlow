@@ -54,12 +54,17 @@ It runs as a **web app** and a **native desktop app** (Electron).
 
 #### Option A: Docker Compose (recommended)
 
+1. Clone the repo and enter it:
+```bash
+git clone https://github.com/gongstudent/StudyFlow.git
+cd StudyFlow
+```
+2. Start all services:
 ```bash
 docker compose up --build
 # or: docker-compose up --build
 ```
-
-Open: `http://localhost:5173`
+3. Open: `http://localhost:5173`
 
 #### Option B: Local development (web + API)
 
@@ -161,12 +166,17 @@ To enable the online demo, set `VITE_API_BASE_URL` at build time to your deploye
 
 #### 方式 A：Docker Compose（推荐）
 
+1. 克隆仓库并进入目录：
+```bash
+git clone https://github.com/gongstudent/StudyFlow.git
+cd StudyFlow
+```
+2. 一键启动：
 ```bash
 docker compose up --build
 # 或：docker-compose up --build
 ```
-
-浏览器打开：`http://localhost:5173`
+3. 浏览器打开：`http://localhost:5173`
 
 #### 方式 B：本地开发（Web + API）
 
