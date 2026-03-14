@@ -1,5 +1,6 @@
 import type { ChatMessage } from '../types';
 import { getLLMSettings } from './llm';
+import { apiUrl, ensureApiAvailable } from './config';
 
 /**
  * 流式发送聊天消息到大模型，逐 chunk 回调
@@ -13,6 +14,12 @@ export async function streamChat(
     const settings = getLLMSettings();
 
     try {
+        try {
+            ensureApiAvailable('AI chat');
+        } catch (err: any) {
+            onError(err?.message || 'API is not available.');
+            return;
+        }
         // IMPORTANT: Browsers will block cross-origin calls to local LLM endpoints (CORS).
         // We proxy the request through our backend (scraper.mjs) to avoid CORS issues.
         const headers: Record<string, string> = {
@@ -23,7 +30,7 @@ export async function streamChat(
             'x-chat-protocol': settings.protocol,
         };
 
-        const response = await fetch('/api/llm/chat', {
+        const response = await fetch(apiUrl('/api/llm/chat'), {
             method: 'POST',
             headers,
             body: JSON.stringify({
@@ -121,6 +128,12 @@ export async function streamKnowledgeBaseChat(
     const settings = getLLMSettings();
 
     try {
+        try {
+            ensureApiAvailable('Knowledge Base chat');
+        } catch (err: any) {
+            onError(err?.message || 'API is not available.');
+            return;
+        }
         const headers: Record<string, string> = {
             'Content-Type': 'application/json',
             'x-chat-url': settings.baseUrl,
@@ -132,7 +145,7 @@ export async function streamKnowledgeBaseChat(
             'x-embedding-model': settings.embeddingModelName
         };
 
-        const response = await fetch('/api/kb/chat', {
+        const response = await fetch(apiUrl('/api/kb/chat'), {
             method: 'POST',
             headers,
             body: JSON.stringify({

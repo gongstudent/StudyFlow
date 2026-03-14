@@ -1,3 +1,5 @@
+import { apiUrl, ensureApiAvailable } from './config';
+
 export interface LLMSettings {
     // Chat LLM Config
     baseUrl: string;
@@ -65,6 +67,7 @@ export const fetchLLMResponse = async (
     }
 
     try {
+        ensureApiAvailable('AI completion');
         // IMPORTANT: Proxy through backend to avoid browser CORS on local endpoints.
         const headers: Record<string, string> = {
             'Content-Type': 'application/json',
@@ -74,7 +77,7 @@ export const fetchLLMResponse = async (
             'x-chat-protocol': settings.protocol,
         };
 
-        const response = await fetch('/api/llm/complete', {
+        const response = await fetch(apiUrl('/api/llm/complete'), {
             method: 'POST',
             headers,
             body: JSON.stringify({ messages })

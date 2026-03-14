@@ -64,7 +64,7 @@ const ArticleContent = memo(function ArticleContent({
           img: ({ src, alt, ...rest }) => {
             // 外部图片通过代理加载（绕过防盗链）
             let proxiedSrc = src || '';
-            if (proxiedSrc.startsWith('http://') || proxiedSrc.startsWith('https://')) {
+            if (API_BASE_URL && (proxiedSrc.startsWith('http://') || proxiedSrc.startsWith('https://'))) {
               proxiedSrc = `${API_BASE_URL}/api/img-proxy?url=${encodeURIComponent(proxiedSrc)}&referer=${encodeURIComponent(url)}`;
             }
             return (

@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { File, Database, AlertCircle, CheckCircle2, Loader2, Upload } from 'lucide-react';
 import { getLLMSettings } from '../lib/llm';
+import { apiUrl, ensureApiAvailable } from '../lib/config';
 
 interface KnowledgeBaseProps {
     onUploadComplete?: (file: File) => void;
@@ -42,13 +43,14 @@ export default function KnowledgeBase({ onUploadComplete }: KnowledgeBaseProps) 
         setStatusMessage('正在解析文档并切片向量化...');
 
         try {
+            ensureApiAvailable('Knowledge Base');
             const formData = new FormData();
             formData.append('file', file);
 
             // 获取用户配置好的 Embedding 设置用来切片
             const llmConf = getLLMSettings();
 
-            const res = await fetch('/api/kb/upload', {
+            const res = await fetch(apiUrl('/api/kb/upload'), {
                 method: 'POST',
                 headers: {
                     'x-embedding-url': llmConf.embeddingBaseUrl,

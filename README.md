@@ -126,6 +126,7 @@ You can override backend settings via environment variables (for `scraper.mjs`):
 ### GitHub Pages Note
 
 This repo also builds a static site for GitHub Pages. Features that depend on the backend (URL scraping, LLM proxy, Knowledge Base) require your own running API and will not work on Pages alone.
+To enable the online demo, set `VITE_API_BASE_URL` at build time to your deployed API base URL.
 
 ---
 
@@ -232,6 +233,7 @@ docker run --rm -p 6333:6333 -p 6334:6334 -v qdrant_storage:/qdrant/storage qdra
 ### GitHub Pages 说明
 
 GitHub Pages 只部署静态页面。依赖后端的功能（URL 抓取、LLM 代理、知识库）需要你自行运行 API 服务，Pages 本身无法提供这些能力。
+如果要让在线 Demo 可用，请在构建时设置 `VITE_API_BASE_URL` 为你部署的 API 地址。
 
 ---
 

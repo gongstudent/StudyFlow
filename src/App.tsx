@@ -10,6 +10,7 @@ import { fetchWebContent } from './lib/scraper';
 import { streamChat, streamKnowledgeBaseChat } from './lib/chat';
 import { saveArticle as dbSaveArticle, getAllArticles as dbGetAllArticles, deleteArticle as dbDeleteArticle, saveChatSession, getChatSession, updateArticleTags } from './lib/db';
 import { getLLMSettings } from './lib/llm';
+import { apiUrl, ensureApiAvailable } from './lib/config';
 import { useTheme } from './hooks/useTheme';
 import type { Article, ChatMessage } from './types';
 
@@ -208,6 +209,7 @@ export default function App() {
   // 添加到知识库
   const handleAddToKB = useCallback(async (article: Article) => {
     try {
+      ensureApiAvailable('Knowledge Base');
       setStatusMsg(`正在将 "${article.title}" 录入知识库...`);
       const llmConf = getLLMSettings();
 
@@ -219,7 +221,7 @@ export default function App() {
       const formData = new FormData();
       formData.append('file', file);
 
-      const res = await fetch('/api/kb/upload', {
+      const res = await fetch(apiUrl('/api/kb/upload'), {
         method: 'POST',
         headers: {
           'x-embedding-url': llmConf.embeddingBaseUrl,
@@ -255,11 +257,12 @@ export default function App() {
   // 从知识库移除
   const handleRemoveFromKB = useCallback(async (article: Article) => {
     try {
+      ensureApiAvailable('Knowledge Base');
       setStatusMsg(`正在从知识库移除 "${article.title}"...`);
       const safeTitle = article.title.replace(/[\\/:*?"<>|]/g, '_') || 'article';
       const source = `${safeTitle}.txt`;
 
-      const res = await fetch('/api/kb/delete', {
+      const res = await fetch(apiUrl('/api/kb/delete'), {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ source })

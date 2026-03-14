@@ -2,19 +2,20 @@ import { Readability } from '@mozilla/readability';
 import TurndownService from 'turndown';
 import type { Article } from '../types';
 
-import { API_BASE_URL } from './config';
+import { apiUrl, ensureApiAvailable } from './config';
 
 // ============================================================
 // 代理地址配置
 // 开发环境: Vite dev proxy '/api/proxy?url='
 // 生产环境: 填入你的 CORS 代理地址，如 'https://your-worker.example.com/?url='
 // ============================================================
-const PROXY_BASE_URL = `${API_BASE_URL}/api/proxy?url=`;
+const PROXY_BASE_URL = apiUrl('/api/proxy?url=');
 
 /**
  * 抓取网页内容，提取正文并转换为 Markdown
  */
 export async function fetchWebContent(url: string): Promise<Article> {
+    ensureApiAvailable('URL scraping');
     // 1. 通过代理获取 HTML
     const html = await fetchHtmlViaProxy(url);
 

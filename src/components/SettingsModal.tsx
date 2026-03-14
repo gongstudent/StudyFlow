@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Save, CheckCircle2, Loader2, Network, AlertCircle } from 'lucide-react';
 import { getLLMSettings, saveLLMSettings, type LLMSettings } from '../lib/llm';
+import { apiUrl, ensureApiAvailable } from '../lib/config';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -49,11 +50,12 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         setTestStatus('testing');
         setTestMsg('正在连接...');
         try {
+            ensureApiAvailable('LLM connectivity test');
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 8000);
 
             // IMPORTANT: Test via backend to avoid browser CORS on local endpoints
-            const response = await fetch('/api/llm/test', {
+            const response = await fetch(apiUrl('/api/llm/test'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ target: activeTab, settings }),
