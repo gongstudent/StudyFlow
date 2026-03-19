@@ -72,6 +72,12 @@ docker compose down
 docker compose up --build
 ```
 
+If Docker fails to pull base images such as `node` or `nginx`, check your Docker Hub connectivity or registry mirror settings first:
+```bash
+docker pull node:20.20.1-alpine3.23
+docker pull nginx:1.29.6-alpine3.23
+```
+
 #### Option B: Local development (web + API)
 
 In two terminals:
@@ -188,6 +194,12 @@ docker compose up --build
 ```bash
 docker compose down
 docker compose up --build
+```
+
+如果 Docker 在拉取 `node`、`nginx` 这类基础镜像时报错，请先检查 Docker Hub 连通性或镜像源配置：
+```bash
+docker pull node:20.20.1-alpine3.23
+docker pull nginx:1.29.6-alpine3.23
 ```
 
 #### 方式 B：本地开发（Web + API）
