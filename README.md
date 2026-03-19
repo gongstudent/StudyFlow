@@ -66,6 +66,12 @@ docker compose up --build
 ```
 3. Open: `http://localhost:5173`
 
+If you already have old containers from a previous version, rebuild cleanly:
+```bash
+docker compose down
+docker compose up --build
+```
+
 #### Option B: Local development (web + API)
 
 In two terminals:
@@ -177,6 +183,12 @@ docker compose up --build
 # 或：docker-compose up --build
 ```
 3. 浏览器打开：`http://localhost:5173`
+
+如果之前已经启动过旧容器，建议先清理再重建：
+```bash
+docker compose down
+docker compose up --build
+```
 
 #### 方式 B：本地开发（Web + API）
 

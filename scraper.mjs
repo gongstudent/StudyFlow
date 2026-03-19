@@ -30,6 +30,10 @@ if (IS_PROD) {
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
+app.get('/api/health', (_req, res) => {
+    res.json({ ok: true, service: 'studyflow-api' });
+});
+
 // ============================================================
 // Ollama Local API Configuration
 // ============================================================
