@@ -11,7 +11,7 @@ export default function NotebookPane({ article, onUpdateArticle }: NotebookPaneP
     if (!article || !article.highlights || article.highlights.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center h-full text-[var(--color-text-tertiary)] gap-3">
-                <div className="w-12 h-12 rounded-xl bg-[var(--color-bg-tertiary)] flex items-center justify-center">
+                <div className="w-12 h-12 rounded-none bg-[var(--color-bg-tertiary)] flex items-center justify-center">
                     <Highlighter size={20} />
                 </div>
                 <p className="text-sm">暂无高亮或笔记</p>
@@ -48,7 +48,7 @@ export default function NotebookPane({ article, onUpdateArticle }: NotebookPaneP
             {sortedHighlights.map((item) => (
                 <div
                     key={item.id}
-                    className="group relative bg-[var(--color-bg-input)] rounded-lg p-3 shadow-sm border border-[var(--color-border-default)] hover:shadow-md transition-shadow cursor-pointer"
+                    className="group relative bg-[var(--color-bg-input)] rounded-none p-3.5 shadow-sm border border-[var(--color-border-default)] hover:shadow-md transition-shadow cursor-pointer"
                     onClick={() => handleJump(item)}
                 >
                     {/* 删除按钮 (Hover 显示) */}

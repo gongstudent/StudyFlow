@@ -350,8 +350,14 @@ body {
 }
 
 /* ===== Chat bubble markdown ===== */
+.chat-bubble-md {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .chat-bubble-md p {
   margin-bottom: 0.4rem;
+  line-height: 1.75;
 }
 
 .chat-bubble-md p:last-child {

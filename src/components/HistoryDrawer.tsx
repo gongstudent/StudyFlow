@@ -40,11 +40,11 @@ const ArticleItem = memo(function ArticleItem({
 }) {
     return (
         <div
-            className={`group flex items-start gap-3 px-3 ${compact ? 'py-2' : 'py-3'} rounded-xl hover:bg-[var(--color-bg-hover)] cursor-pointer transition-colors`}
+            className={`group flex items-start gap-3 px-3 ${compact ? 'py-2.5' : 'py-3.5'} rounded-none hover:bg-[var(--color-bg-hover)] cursor-pointer transition-colors`}
             onClick={() => onLoadArticle(article)}
         >
             {!compact && (
-                <div className="w-8 h-8 rounded-lg bg-[var(--color-bg-input)] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] flex items-center justify-center flex-shrink-0 mt-0.5">
+                <div className="w-8 h-8 rounded-none bg-[var(--color-bg-input)] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] flex items-center justify-center flex-shrink-0 mt-0.5">
                     <ExternalLink size={14} className="text-[var(--color-text-tertiary)]" />
                 </div>
             )}
@@ -130,7 +130,7 @@ const LearningHeatmap = memo(function LearningHeatmap({ articles }: { articles: 
                 </span>
                 <div className="flex items-center gap-3 text-[12px] font-medium text-[var(--color-text-tertiary)]">
                     {streak > 0 && (
-                        <span className="flex items-center gap-1.5 bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-500 px-2 py-0.5 rounded-full">
+                        <span className="flex items-center gap-1.5 bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-500 px-2.5 py-1 rounded-none">
                             <Flame size={12} />
                             <span>{streak} 天连续</span>
                         </span>
@@ -225,14 +225,14 @@ export default function HistoryDrawer({
                 {/* Header */}
                 <div className="flex items-center justify-between px-5 h-[64px] border-b border-[var(--color-border-divider)] flex-shrink-0">
                     <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-lg bg-[var(--color-bg-input)] flex items-center justify-center text-[var(--color-text-secondary)]">
+                        <div className="w-8 h-8 rounded-none bg-[var(--color-bg-input)] flex items-center justify-center text-[var(--color-text-secondary)]">
                             <History size={16} />
                         </div>
                         <h2 className="text-[16px] font-bold text-[var(--color-text-primary)]">历史文章</h2>
                     </div>
                     <button
                         onClick={onClose}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
+                        className="w-8 h-8 flex items-center justify-center rounded-none text-[var(--color-text-tertiary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)] transition-colors cursor-pointer"
                     >
                         <X size={18} />
                     </button>
@@ -240,7 +240,7 @@ export default function HistoryDrawer({
 
                 {articles.length === 0 ? (
                     <div className="flex-1 flex flex-col items-center justify-center text-[var(--color-text-tertiary)] gap-4 px-6">
-                        <div className="w-14 h-14 rounded-2xl bg-[var(--color-bg-input)] flex items-center justify-center">
+                        <div className="w-14 h-14 rounded-none bg-[var(--color-bg-input)] flex items-center justify-center">
                             <History size={24} className="opacity-50" />
                         </div>
                         <p className="text-[14px] text-center font-medium leading-relaxed">
@@ -256,10 +256,10 @@ export default function HistoryDrawer({
 
                         {/* Segmented Control 视图切换 */}
                         <div className="px-5 pt-4 pb-2 flex-shrink-0">
-                            <div className="flex items-center rounded-xl p-1 bg-[var(--color-bg-input)]">
+                            <div className="flex items-center rounded-none p-1.5 bg-[var(--color-bg-input)]">
                                 <button
                                     onClick={() => setViewStyle('list')}
-                                    className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[13px] font-semibold cursor-pointer transition-all duration-200"
+                                    className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-none text-[13px] font-semibold cursor-pointer transition-all duration-200"
                                     style={
                                         viewStyle === 'list'
                                             ? { backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text-primary)', boxShadow: '0 1px 2px rgba(0,0,0,.05)' }
@@ -271,7 +271,7 @@ export default function HistoryDrawer({
                                 </button>
                                 <button
                                     onClick={() => setViewStyle('grouped')}
-                                    className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[13px] font-semibold cursor-pointer transition-all duration-200"
+                                    className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-none text-[13px] font-semibold cursor-pointer transition-all duration-200"
                                     style={
                                         viewStyle === 'grouped'
                                             ? { backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text-primary)', boxShadow: '0 1px 2px rgba(0,0,0,.05)' }
@@ -309,14 +309,14 @@ export default function HistoryDrawer({
                                     return (
                                         <details key={tag} open className="group mb-2.5">
                                             <summary
-                                                className="flex items-center gap-2.5 px-4 py-3 rounded-xl cursor-pointer select-none transition-all border border-transparent hover:border-[var(--color-border-default)]"
+                                                className="flex items-center gap-2.5 px-4 py-3.5 rounded-none cursor-pointer select-none transition-all border border-transparent hover:border-[var(--color-border-default)]"
                                                 style={{ backgroundColor: color.bg, borderLeft: `4px solid ${color.accent}` }}
                                             >
                                                 <ChevronRight size={14} className="flex-shrink-0 transition-transform duration-200 group-open:rotate-90" style={{ color: color.accent }} />
                                                 <Hash size={14} className="flex-shrink-0" style={{ color: color.accent }} />
                                                 <span className="text-[14px] font-bold" style={{ color: color.text }}>{tag}</span>
                                                 <span
-                                                    className="ml-auto text-[11px] font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5"
+                                                    className="ml-auto text-[11px] font-bold rounded-none min-w-[24px] h-6 flex items-center justify-center px-2"
                                                     style={{ backgroundColor: color.accent, color: '#fff' }}
                                                 >
                                                     {count}

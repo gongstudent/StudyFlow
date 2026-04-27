@@ -83,7 +83,7 @@ export default function SplitPane({
     <div ref={containerRef} className="flex flex-1 overflow-hidden relative">
       {/* 左侧面板 */}
       <div
-        className="overflow-hidden flex flex-col bg-[var(--color-bg-card)] rounded-2xl shadow-sm border border-[var(--color-border-default)]"
+        className="overflow-hidden flex flex-col bg-[var(--color-bg-card)] rounded-none shadow-sm border border-[var(--color-border-default)]"
         style={{ width: `calc(${leftPercent}% - 8px)` }}
       >
         {left}
@@ -94,14 +94,14 @@ export default function SplitPane({
         className="relative flex items-center justify-center flex-shrink-0 w-4 cursor-col-resize z-10 group"
         onMouseDown={handleMouseDown}
       >
-        <div className={`w-1 h-10 rounded-full transition-colors ${isDragging ? 'bg-[var(--color-accent-primary)]' : 'bg-transparent group-hover:bg-[var(--color-border-strong)]'
+        <div className={`w-1.5 h-12 rounded-none transition-colors ${isDragging ? 'bg-[var(--color-accent-primary)]' : 'bg-transparent group-hover:bg-[var(--color-border-strong)]'
           }`} />
         {/* 更大的不可见拖拽热区 */}
         <div className="absolute inset-y-0 -left-2 -right-2" />
       </div>
 
       {/* 右侧面板 */}
-      <div className="overflow-hidden flex flex-col flex-1 min-w-0 bg-[var(--color-bg-card)] rounded-2xl shadow-sm border border-[var(--color-border-default)]">
+      <div className="overflow-hidden flex flex-col flex-1 min-w-0 bg-[var(--color-bg-card)] rounded-none shadow-sm border border-[var(--color-border-default)]">
         {right}
       </div>
     </div>

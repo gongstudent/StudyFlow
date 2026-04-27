@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import { Lightbulb, FileText, Languages, Highlighter, PenTool, Check, X } from 'lucide-react';
 
@@ -17,20 +17,18 @@ export default function SelectionToolbar({
   const [noteContent, setNoteContent] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const container = containerRef.current;
-  if (!container) return null;
-
   useEffect(() => {
     if (mode === 'note' && inputRef.current) {
       inputRef.current.focus();
     }
   }, [mode]);
 
-  const containerRect = container.getBoundingClientRect();
+  const container = containerRef.current;
+  if (!container) return null;
 
-  // 计算浮窗位置 (在选区上方居中)
+  const containerRect = container.getBoundingClientRect();
   const top = rect.top - containerRect.top + container.scrollTop - (mode === 'note' ? 120 : 44);
-  const left = rect.left - containerRect.left + rect.width / 2;
+  const left = rect.left - containerRect.left + container.scrollLeft + rect.width / 2;
 
   const handleAction = (key: string) => {
     if (key === '笔记') {
@@ -56,7 +54,7 @@ export default function SelectionToolbar({
   if (mode === 'note') {
     return (
       <div
-        className="selection-toolbar absolute z-50 bg-[var(--color-bg-bubble-user)] rounded-lg shadow-lg p-2 flex flex-col gap-2 w-64"
+        className="selection-toolbar absolute z-50 bg-[var(--color-bg-bubble-user)] rounded-none shadow-lg p-3 flex flex-col gap-2.5 w-72"
         style={{ top: `${top}px`, left: `${left}px`, transform: 'translateX(-50%)' }}
         onMouseDown={(e) => e.stopPropagation()}
         onMouseUp={(e) => e.stopPropagation()}
@@ -68,11 +66,11 @@ export default function SelectionToolbar({
           value={noteContent}
           onChange={(e) => setNoteContent(e.target.value)}
           placeholder="写下你的想法..."
-          className="w-full h-20 text-sm p-2 rounded bg-white/10 text-white placeholder-white/50 border-none outline-none resize-none"
+          className="w-full h-20 text-sm p-2.5 rounded-none bg-white/10 text-white placeholder-white/50 border-none outline-none resize-none"
           autoFocus={true}
           style={{ userSelect: 'text', cursor: 'text' }}
           onKeyDown={(e) => {
-            e.stopPropagation(); // 再次确保
+            e.stopPropagation();
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
               submitNote();
@@ -83,10 +81,10 @@ export default function SelectionToolbar({
           }}
         />
         <div className="flex justify-end gap-2">
-          <button onClick={cancelNote} className="p-1 hover:bg-white/10 rounded text-white/70">
+          <button onClick={cancelNote} className="p-1.5 hover:bg-white/10 rounded-none text-white/70">
             <X size={14} />
           </button>
-          <button onClick={submitNote} className="p-1 hover:bg-white/10 rounded text-green-400">
+          <button onClick={submitNote} className="p-1.5 hover:bg-white/10 rounded-none text-green-400">
             <Check size={14} />
           </button>
         </div>
@@ -105,10 +103,10 @@ export default function SelectionToolbar({
 
   return (
     <div
-      className="selection-toolbar absolute z-50 flex items-center gap-0.5 bg-[var(--color-bg-bubble-user)] rounded-lg shadow-lg px-1 py-1"
+      className="selection-toolbar absolute z-50 flex items-center gap-1 bg-[var(--color-bg-bubble-user)] rounded-none shadow-lg px-1.5 py-1.5"
       style={{ top: `${top}px`, left: `${left}px`, transform: 'translateX(-50%)' }}
       onMouseDown={(e) => {
-        e.preventDefault(); // 防止按钮点击导致选区丢失
+        e.preventDefault();
         e.stopPropagation();
       }}
       onMouseUp={(e) => e.stopPropagation()}
@@ -123,7 +121,7 @@ export default function SelectionToolbar({
           <button
             key={key}
             onClick={() => handleAction(key)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-[var(--color-text-inverse)] hover:bg-white/10 rounded-md transition-colors whitespace-nowrap ${color || ''}`}
+            className={`flex items-center gap-1.5 px-3.5 py-2 text-[12px] font-medium text-[var(--color-text-inverse)] hover:bg-white/10 rounded-none transition-colors whitespace-nowrap ${color || ''}`}
           >
             {Icon && <Icon size={13} />}
             {label}

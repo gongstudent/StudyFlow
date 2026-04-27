@@ -8,6 +8,7 @@
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
+    "dev:all": "concurrently -k \"npm run server\" \"npm run dev\"",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",

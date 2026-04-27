@@ -73,7 +73,7 @@ const ArticleContent = memo(function ArticleContent({
                 alt={alt || ''}
                 referrerPolicy="no-referrer"
                 loading="lazy"
-                className="max-w-full h-auto rounded-lg shadow-sm my-4 border border-gray-100"
+                className="max-w-full h-auto rounded-none shadow-sm my-4 border border-gray-100"
                 onError={(e) => {
                   e.currentTarget.style.border = '2px solid red';
                 }}
@@ -92,7 +92,7 @@ const ArticleContent = memo(function ArticleContent({
 export default function ReaderPane({ article, onSelectText, onUpdateArticle }: ReaderPaneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   // useTextSelection 会导致组件重绘，必须隔离 Markdown 渲染
-  const { isVisible, position, text, clearSelection } = useTextSelection(containerRef as React.RefObject<HTMLElement>);
+  const { isVisible, rect, text, clearSelection } = useTextSelection(containerRef as React.RefObject<HTMLElement>);
 
   // 监听 PDF 组件派发的自定义事件
   useEffect(() => {
@@ -145,7 +145,7 @@ export default function ReaderPane({ article, onSelectText, onUpdateArticle }: R
   if (!article) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center text-[var(--color-text-tertiary)] gap-4 px-8">
-        <div className="w-16 h-16 rounded-2xl bg-[var(--color-bg-tertiary)] flex items-center justify-center">
+        <div className="w-16 h-16 rounded-none bg-[var(--color-bg-tertiary)] flex items-center justify-center">
           <BookOpen size={28} className="text-[var(--color-text-tertiary)]" />
         </div>
         <div className="text-center">
@@ -207,17 +207,9 @@ export default function ReaderPane({ article, onSelectText, onUpdateArticle }: R
       </div>
 
       {/* 划词浮窗 */}
-      {isVisible && text && (
+      {isVisible && text && rect && (
         <SelectionToolbar
-          rect={{
-            left: position.x,
-            top: position.y,
-            width: 0,
-            height: 0,
-            right: position.x,
-            bottom: position.y,
-            toJSON: () => { }
-          } as DOMRect}
+          rect={rect as DOMRect}
           containerRef={containerRef}
           onAction={handleToolbarAction}
         />

@@ -24,6 +24,7 @@ export interface Article {
   tags?: string[];
   /** 是否已被存入知识库 */
   isSavedToKB?: boolean;
+  kbSource?: string;
   /** 原文件类型 */
   fileType?: 'pdf' | 'docx' | 'md' | 'txt';
   /** 原文件数据 (用于 PDF 渲染) */
@@ -38,6 +39,13 @@ export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: number;
+}
+
+export interface KbSourceItem {
+  source: string;
+  sourceKey?: string;
+  chunkCount: number;
+  lastIngestedAt?: number | null;
 }
 
 /** 侧边栏模式 */
