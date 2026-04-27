@@ -1,332 +1,223 @@
-# StudyFlow - AI-Powered Study Assistant
+# StudyFlow
 
-<div align="center">
+AI-powered reading and learning workspace with:
 
-![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
-![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
-![Electron](https://img.shields.io/badge/Electron-47848F?style=for-the-badge&logo=electron&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
-![Qdrant](https://img.shields.io/badge/Qdrant-FF4B4B?style=for-the-badge&logo=qdrant&logoColor=white)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
-<br>
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](./LICENSE)
-
-<br>
-<a href="#english">English</a> | <a href="#zh-cn">简体中文</a>
-</div>
-
-<div align="center">
-  <br />
-  <img src="./img/项目首页图.png" alt="StudyFlow main interface" width="860" />
-  <p><em>Unified reading, AI chat, notes, and knowledge base in one workspace.</em></p>
-</div>
+- URL/PDF/DOCX/TXT reading
+- AI chat (current article / global knowledge base)
+- Personal notes
+- Qdrant-backed RAG knowledge base
 
 ---
 
-<h2 id="english">English</h2>
+## 中文说明（推荐先看）
 
-**StudyFlow** is an AI-powered reading and learning workspace that combines:
+### 1) 项目是什么
 
-- a reading engine for URLs and local files
-- an AI notebook for side-by-side note taking
-- a Qdrant-backed knowledge base for RAG
-- web and desktop delivery in one codebase
+StudyFlow 是一个“阅读 + 问答 + 笔记 + 知识库”的一体化学习工具。
 
-### Features
+核心能力：
 
-- Read from URLs or upload `.pdf`, `.docx`, `.md`, `.txt`
-- Chat with the current article or your full knowledge base
-- Build a private RAG workflow: chunk -> embed -> store -> retrieve
-- Stream AI responses in real time
-- Configure local or cloud LLM endpoints
-- Run as a web app, desktop app, or Docker deployment
+- 导入网页或本地文档（`pdf/docx/txt/md`）
+- 对当前文章提问
+- 对全局知识库提问（RAG）
+- 上传文档到向量库（Qdrant）
+- 流式输出，支持**手动终止**本次回答
 
-<div align="center">
-  <img src="./img/使用界面2.png" alt="PDF reading and note-taking workspace" width="860" />
-  <p><em>Read PDFs with formatting intact, annotate content, and keep notes beside the source.</em></p>
-</div>
+### 2) 环境要求
 
-<div align="center">
-  <img src="./img/使用界面.png" alt="Article chat and knowledge-base workspace" width="860" />
-  <p><em>Switch between current-article chat and global knowledge-base chat without leaving the reading flow.</em></p>
-</div>
+- Node.js 20+
+- npm
+- Docker Desktop（本地开发至少需要用来启动 Qdrant）
 
-### Model Configuration
+### 3) 启动方式（两套，二选一）
 
-Open **Settings** in the app to configure both **Chat LLM** and **Embedding**.
+不要同时混用两套方式，否则会端口冲突（`5173 / 3000 / 6333`）。
 
-Default local setup:
+#### 方式 A：本地开发（推荐）
 
-- Chat Base URL: `http://localhost:11434/v1`
-- Embedding Base URL: `http://localhost:11434/v1`
-- Chat Model: `qwen2.5:7b`
-- Embedding Model: `nomic-embed-text`
-
-You can also point StudyFlow to any OpenAI-compatible provider, including GitHub Models and other hosted APIs.
-
-<div align="center">
-  <img src="./img/支持自定义大模型.png" alt="Custom LLM configuration dialog" width="640" />
-  <p><em>Configure custom chat and embedding endpoints, API keys, and model names inside the app.</em></p>
-</div>
-
-### Knowledge Base (Qdrant)
-
-Knowledge Base features require Qdrant at `http://localhost:6333` by default.
-
-- Upload PDF, DOCX, or TXT files into a dedicated RAG space
-- Store document chunks in Qdrant
-- Query across your indexed materials through the same chat interface
-
-<div align="center">
-  <img src="./img/上传文件构建rag专属智库.png" alt="Knowledge base upload screen" width="860" />
-  <p><em>Upload files and build a dedicated RAG knowledge space for long-term retrieval and Q&A.</em></p>
-</div>
-
-Quick Qdrant startup:
+1. 先启动向量库（Qdrant）：
 
 ```bash
-docker run --rm -p 6333:6333 -p 6334:6334 -v qdrant_storage:/qdrant/storage qdrant/qdrant:latest
+docker compose up -d qdrant
 ```
 
-Backend environment variables:
-
-- `QDRANT_URL`, `QDRANT_COLLECTION`
-- `UPLOAD_DIR`
-- `OLLAMA_HOST`, `OLLAMA_MODEL`
-- `EMBEDDING_BASE_URL`, `EMBEDDING_MODEL_NAME`, `EMBEDDING_API_KEY`
-
-### Tech Stack
-
-- Frontend: React 19, Vite, TypeScript, Tailwind CSS v4
-- Desktop: Electron
-- Backend: Node.js + Express (`scraper.mjs`)
-- Vector database: Qdrant
-- Deployment: Docker Compose + Nginx
-
-### Quick Start
-
-#### Option A: Docker Compose
-
-1. Clone the repository and enter the project:
-
-```bash
-git clone https://github.com/gongstudent/StudyFlow.git
-cd StudyFlow
-```
-
-2. Start all services:
-
-```bash
-docker compose up --build
-# or
-docker-compose up --build
-```
-
-3. Open `http://localhost:5173`
-
-If you already have old containers from a previous version, rebuild cleanly:
-
-```bash
-docker compose down
-docker compose up --build
-```
-
-If Docker fails to pull base images such as `node` or `nginx`, check Docker Hub connectivity or your registry mirror first:
-
-```bash
-docker pull node:20.20.1-alpine3.23
-docker pull nginx:1.29.6-alpine3.23
-```
-
-#### Option B: Local Development
-
-Run the API and frontend in separate terminals:
+2. 安装依赖并启动后端：
 
 ```bash
 npm install
 npm run server
 ```
 
+3. 新开终端启动前端：
+
 ```bash
 npm run dev
 ```
+
+4. 访问：
 
 - Web: `http://localhost:5173`
 - API: `http://localhost:3000`
+- Qdrant: `http://localhost:6333`
 
-#### Option C: Desktop App
-
-```bash
-npm install
-npm run electron:dev
-```
-
-Build the installer:
+#### 方式 B：全 Docker
 
 ```bash
-npm run electron:build
+docker compose up --build -d
 ```
 
-### GitHub Pages Note
-
-This repository also publishes a static GitHub Pages demo. Backend-dependent features such as URL scraping, LLM proxying, and knowledge-base chat require a running API service and do not work on Pages by themselves.
-
-To enable the online demo, provide `VITE_API_BASE_URL` at build time and point it to your deployed backend.
+访问：`http://localhost:5173`
 
 ---
 
-<h2 id="zh-cn">简体中文</h2>
+### 4) 模型配置（必须）
 
-**StudyFlow** 是一个 AI 驱动的阅读与学习工作台，集成了：
+在页面“模型设置”中分别配置：
 
-- 面向 URL 与本地文件的阅读引擎
-- 可与原文并排使用的 AI 笔记本
-- 基于 Qdrant 的知识库与 RAG 检索能力
-- 同时支持 Web 与桌面端的交付形态
+- Chat LLM（对话模型）
+- Embedding（向量模型）
 
-### 核心功能
+常见本地示例（Ollama OpenAI 兼容网关）：
 
-- 支持 URL 抓取与上传 `.pdf`、`.docx`、`.md`、`.txt`
-- 可围绕当前文章或全局知识库进行问答
-- 支持私有 RAG 流程：切片 -> 向量化 -> 存储 -> 检索
-- 支持流式 AI 输出
-- 支持本地模型与云端模型的自定义配置
-- 支持 Web、Electron 与 Docker 部署
+- Chat Base URL: `http://localhost:11434/v1`
+- Embedding Base URL: `http://localhost:11434/v1`
 
-<div align="center">
-  <img src="./img/使用界面2.png" alt="PDF 阅读与笔记界面" width="860" />
-  <p><em>保留文档版式进行阅读，同时在右侧完成 AI 交互与笔记整理。</em></p>
-</div>
+配置会持久化到：
 
-<div align="center">
-  <img src="./img/使用界面.png" alt="文章问答与知识库问答界面" width="860" />
-  <p><em>在当前文章问答与全局知识库问答之间自由切换，保持连续的阅读流程。</em></p>
-</div>
+- `data/llm-settings.json`
 
-### 模型配置
+---
 
-在应用内的 **Settings** 中可以分别配置 **对话模型** 与 **Embedding 模型**。
+### 5) 知识库（RAG）说明
 
-默认本地配置：
+上传文件后，后端会做：
 
-- Chat Base URL：`http://localhost:11434/v1`
-- Embedding Base URL：`http://localhost:11434/v1`
-- 对话模型：`qwen2.5:7b`
-- 向量模型：`nomic-embed-text`
+1. 文本抽取
+2. 分块（默认 `chunk=500`，`overlap=50`）
+3. 生成向量
+4. 写入 Qdrant
 
-你也可以接入任意 OpenAI 兼容接口，包括 GitHub Models 与其他云端 API。
+全局知识库问答时：
 
-<div align="center">
-  <img src="./img/支持自定义大模型.png" alt="自定义模型配置弹窗" width="640" />
-  <p><em>在应用内直接配置自定义聊天模型、向量模型、API Key 与服务地址。</em></p>
-</div>
+- 会先从向量库召回候选块
+- 再做跨来源的上下文选择，减少“单文档霸榜”
+- 特殊问题（如“列出知识库所有文件”）走真实索引清单，避免模型猜测
 
-### 知识库（Qdrant）
+---
 
-知识库功能默认依赖 `http://localhost:6333` 上运行的 Qdrant。
+### 6) 你关心的交互：发送后可终止
 
-- 支持上传 PDF、DOCX、TXT 文件构建专属 RAG 知识空间
-- 文档切片后写入 Qdrant
-- 可通过同一聊天界面对已索引资料进行检索式问答
+现在聊天区支持：
 
-<div align="center">
-  <img src="./img/上传文件构建rag专属智库.png" alt="知识库上传界面" width="860" />
-  <p><em>上传文档后即可构建专属知识空间，为后续检索与问答提供上下文基础。</em></p>
-</div>
+- 发送后按钮会变成“停止”
+- 点击后会立刻中断当前流式输出
+- 不需要刷新页面
 
-快速启动 Qdrant：
+---
+
+### 7) 常见报错排查
+
+#### `Failed to fetch` / `ERR_CONNECTION_REFUSED`
+
+- 检查 `npm run server` 是否在运行
+- 检查前端请求的是 `http://localhost:3000`
+
+#### `QDRANT_UNAVAILABLE` / `Qdrant is not reachable`
+
+- 检查 Qdrant 是否启动：`docker compose ps`
+- 本地开发时确认 `6333` 端口可访问
+
+#### `/api/kb/sources` 500
+
+- 通常是 Qdrant 未启动或连接失败
+- 先看 `npm run server` 控制台日志
+
+#### `Failed to parse JSON response from chat endpoint`
+
+- Chat Base URL 不是 OpenAI 兼容接口（通常缺少 `/v1`）
+- 或上游返回了 HTML 错误页
+
+---
+
+### 8) 常用命令
 
 ```bash
-docker run --rm -p 6333:6333 -p 6334:6334 -v qdrant_storage:/qdrant/storage qdrant/qdrant:latest
+# 前端开发
+npm run dev
+
+# 后端 API
+npm run server
+
+# 前后端一起启动
+npm run dev:all
+
+# 类型构建
+npm run build
+
+# Electron 开发
+npm run electron:dev
 ```
 
-后端支持的环境变量：
+---
 
-- `QDRANT_URL`, `QDRANT_COLLECTION`
-- `UPLOAD_DIR`
-- `OLLAMA_HOST`, `OLLAMA_MODEL`
-- `EMBEDDING_BASE_URL`, `EMBEDDING_MODEL_NAME`, `EMBEDDING_API_KEY`
+## English
 
-### 技术栈
+### What it is
 
-- 前端：React 19、Vite、TypeScript、Tailwind CSS v4
-- 桌面端：Electron
-- 后端：Node.js + Express（`scraper.mjs`）
-- 向量数据库：Qdrant
-- 部署：Docker Compose + Nginx
+StudyFlow is a unified workspace for reading, AI chat, notes, and RAG knowledge-base workflows.
 
-### 快速开始
+### Prerequisites
 
-#### 方式 A：Docker Compose
+- Node.js 20+
+- npm
+- Docker Desktop (at least for Qdrant in local dev)
 
-1. 克隆仓库并进入项目目录：
+### Run modes (choose one)
 
-```bash
-git clone https://github.com/gongstudent/StudyFlow.git
-cd StudyFlow
-```
+Do not run both at the same time.
 
-2. 启动全部服务：
+#### Mode A: Local development (recommended)
 
 ```bash
-docker compose up --build
-# 或
-docker-compose up --build
-```
-
-3. 浏览器打开 `http://localhost:5173`
-
-如果之前已经运行过旧版本容器，建议先清理再重建：
-
-```bash
-docker compose down
-docker compose up --build
-```
-
-如果 Docker 在拉取 `node`、`nginx` 等基础镜像时失败，请先检查 Docker Hub 连通性或镜像源配置：
-
-```bash
-docker pull node:20.20.1-alpine3.23
-docker pull nginx:1.29.6-alpine3.23
-```
-
-#### 方式 B：本地开发
-
-在两个终端中分别运行：
-
-```bash
+docker compose up -d qdrant
 npm install
 npm run server
-```
-
-```bash
+# new terminal
 npm run dev
 ```
 
-- Web：`http://localhost:5173`
-- API：`http://localhost:3000`
+Endpoints:
 
-#### 方式 C：桌面端
+- Web: `http://localhost:5173`
+- API: `http://localhost:3000`
+- Qdrant: `http://localhost:6333`
+
+#### Mode B: Full Docker
 
 ```bash
-npm install
-npm run electron:dev
+docker compose up --build -d
 ```
 
-打包安装包：
+### Model settings
+
+Configure both Chat and Embedding in app settings.  
+Settings are persisted to `data/llm-settings.json`.
+
+### RAG pipeline
+
+Upload -> text extraction -> chunking -> embedding -> Qdrant indexing -> retrieval -> answer generation.
+
+### UX behavior
+
+During streaming output, the send button changes to a stop button so users can cancel the current response instantly.
+
+### Scripts
 
 ```bash
+npm run dev
+npm run server
+npm run dev:all
+npm run build
+npm run electron:dev
 npm run electron:build
 ```
-
-### GitHub Pages 说明
-
-仓库也提供 GitHub Pages 静态演示页，但 URL 抓取、LLM 代理、知识库问答等依赖后端的能力，不能仅靠静态页面独立运行。
-
-如果希望在线 Demo 可用，请在构建时设置 `VITE_API_BASE_URL`，并指向你已经部署好的后端服务。
-
----
-
-<div align="center">
-  <i>Built with care to make learning feel continuous and organized.</i>
-</div>
